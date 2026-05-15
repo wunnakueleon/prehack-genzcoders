@@ -1,0 +1,27 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id        String    @id @default(uuid())
+  username  String    @unique
+  email     String    @unique
+  password  String
+  createdAt DateTime  @default(now())
+  sent      Message[] @relation("sender")
+  received  Message[] @relation("receiver")
+}
+
+model Message {
+  id         String   @id @default(uuid())
+  content    String
+  sender     User     @relation("sender", fields: [senderId], references: [id])
+  senderId   String
+  receiver   User     @relation("receiver", fields: [receiverId], references: [id])
+  receiverId String
+  createdAt  DateTime @default(now())
+}

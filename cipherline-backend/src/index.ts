@@ -1,12 +1,23 @@
-import http from 'http';
+import "dotenv/config";
+import express from "express";
+import morgan from "morgan";
+import { errorHandler } from "./middlewares/error_handler.js";
+import router from "./routers.js";
 
-const PORT = 3000;
+const app = express();
+const PORT = process.env.PORT ?? 3000;
+const CORS_ORIGIN = process.env.CORS_ORIGIN ?? "http://localhost:5173";
 
-const server = http.createServer((req, res) => {
-  res.writeHead(200, { 'Content-Type': 'text/plain' });
-  res.end('Hello, World!');
+app.use((_req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", CORS_ORIGIN);
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  next();
 });
+app.use(morgan("dev"));
+app.use(express.json());
 
-server.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
-});
+app.use("/api", router);
+
+app.use(errorHandler);
+
+app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
