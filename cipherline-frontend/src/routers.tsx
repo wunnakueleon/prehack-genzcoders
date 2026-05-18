@@ -6,6 +6,7 @@ import StrengthCheckerPage from "./modules/strength-checker/StrengthCheckerPage"
 import DuplicateDetectorPage from "./modules/duplicate-detector/DuplicateDetectorPage";
 import ExpiryTrackerPage from "./modules/expiry-tracker/ExpiryTrackerPage";
 import BreachCheckPage from "./modules/breach-check/BreachCheckPage";
+import VaultPage from "./modules/vault/VaultPage";
 
 const router = createBrowserRouter([
   {
@@ -16,6 +17,7 @@ const router = createBrowserRouter([
       { path: "duplicates", element: <DuplicateDetectorPage /> },
       { path: "expiry",     element: <ExpiryTrackerPage /> },
       { path: "breach",     element: <BreachCheckPage /> },
+      { path: "vault",      element: <VaultPage /> },
     ],
   },
   { path: "/login",  element: <LoginPage /> },
