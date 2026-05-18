@@ -1,24 +1,16 @@
 import express from "express";
-import db from "./db.js";
+import authRouter from "./modules/auth/auth.router.js";
+import strengthRouter from "./modules/strength-checker/strength.router.js";
+import duplicateRouter from "./modules/duplicate-detector/duplicate.router.js";
+import expiryRouter from "./modules/expiry-tracker/expiry.router.js";
+import breachRouter from "./modules/breach-check/breach.router.js";
 
 const router = express.Router();
 
-router.get("/users", async (_req, res) => {
-  const users = await db.user.findMany({
-    select: { id: true, username: true, email: true, createdAt: true },
-  });
-  res.json(users);
-});
-
-router.get("/messages", async (_req, res) => {
-  const messages = await db.message.findMany({
-    include: {
-      sender: { select: { username: true } },
-      receiver: { select: { username: true } },
-    },
-    orderBy: { createdAt: "asc" },
-  });
-  res.json(messages);
-});
+router.use("/auth",       authRouter);
+router.use("/strength",   strengthRouter);
+router.use("/duplicates", duplicateRouter);
+router.use("/expiry",     expiryRouter);
+router.use("/breach",     breachRouter);
 
 export default router;
