@@ -10,21 +10,28 @@ async function main() {
     create: { username: "alice", email: "alice@example.com", password: hashed },
   });
 
-  const bob = await db.user.upsert({
-    where: { email: "bob@example.com" },
-    update: {},
-    create: { username: "bob", email: "bob@example.com", password: hashed },
-  });
-
-  await db.message.createMany({
+  await db.passwordEntry.createMany({
     data: [
-      { content: "Hey Bob!", senderId: alice.id, receiverId: bob.id },
-      { content: "Hey Alice!", senderId: bob.id, receiverId: alice.id },
-      { content: "How's it going?", senderId: alice.id, receiverId: bob.id },
+      {
+        userId: alice.id,
+        siteName: "GitHub",
+        siteUrl: "https://github.com",
+        usernameForSite: "alice",
+        encryptedPassword: "encrypted_abc123",
+        breachStatus: "safe",
+      },
+      {
+        userId: alice.id,
+        siteName: "Gmail",
+        siteUrl: "https://gmail.com",
+        usernameForSite: "alice@gmail.com",
+        encryptedPassword: "encrypted_abc123",
+        breachStatus: "unchecked",
+      },
     ],
   });
 
-  console.log("Seeded: alice, bob, 3 messages");
+  console.log("Seeded: alice with 2 password entries");
 }
 
 main()
