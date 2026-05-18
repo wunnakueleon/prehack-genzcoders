@@ -1,6 +1,6 @@
 # Cipherline
 
-A full-stack messaging app — React frontend + Express/Prisma backend.
+A full-stack password manager — React frontend + Express/Prisma backend.
 
 ## Structure
 
@@ -63,4 +63,3 @@ npm run dev
 | `npm run preview` | Preview production build |
 | `npm run lint` | Run ESLint |
 test
-test2
