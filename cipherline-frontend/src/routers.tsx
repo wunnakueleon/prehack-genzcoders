@@ -10,14 +10,13 @@ import VaultPage from "./modules/vault/VaultPage";
 
 const router = createBrowserRouter([
   {
-    path: "/",
     element: <App />,
     children: [
-      { path: "strength",   element: <StrengthCheckerPage /> },
-      { path: "duplicates", element: <DuplicateDetectorPage /> },
-      { path: "expiry",     element: <ExpiryTrackerPage /> },
-      { path: "breach",     element: <BreachCheckPage /> },
-      { path: "vault",      element: <VaultPage /> },
+      { path: "/vault", element: <VaultPage /> },
+      { path: "/strength",   element: <StrengthCheckerPage /> },
+      { path: "/duplicates", element: <DuplicateDetectorPage /> },
+      { path: "/expiry",     element: <ExpiryTrackerPage /> },
+      { path: "/breach",     element: <BreachCheckPage /> },
     ],
   },
   { path: "/login",  element: <LoginPage /> },
