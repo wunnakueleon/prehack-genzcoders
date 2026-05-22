@@ -5,16 +5,9 @@ import { analyzeStrength, generatePassword } from "../shared/utils";
 import { ACCOUNTS } from "../shared/data";
 import PasswordInput from "./components/PasswordInput";
 import StrengthMeter from "./components/StrengthMeter";
+import StrengthRecommendations from "./components/StrengthRecommendations";
+import type { StrengthAnalysis } from "./strength.types";
 import api from "../../api";
-
-interface StrengthAnalysis {
-  score: number;
-  label: string;
-  entropy: number;
-  length: number;
-  charset: number;
-  issues: string[];
-}
 
 function StrengthCheckerPage() {
   const [pw, setPw] = useState("");
@@ -102,23 +95,29 @@ function StrengthCheckerPage() {
             </button>
           </div>
 
-          <PasswordInput
-            value={pw}
-            onChange={handlePasswordChange}
-            onGenerate={generateSample}
-          />
+          <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_340px] gap-4 sm:gap-5 items-start">
+            <div className="min-w-0">
+              <PasswordInput
+                value={pw}
+                onChange={handlePasswordChange}
+                onGenerate={generateSample}
+              />
 
-          {pw ? (
-            <StrengthMeter
-              password={pw}
-              analysis={analysis}
-              loading={loading}
-            />
-          ) : (
-            <div className="mt-5 p-[22px_16px] sm:p-[30px_20px] text-center text-[var(--text-muted)] border border-dashed border-[var(--border-strong)] rounded-[var(--r-md)] bg-[oklch(0.12_0.018_245/0.4)] font-mono text-[11px] sm:text-[12px] tracking-[0.08em]">
-              // start typing to see live analysis
+              {pw ? (
+                <StrengthMeter
+                  password={pw}
+                  analysis={analysis}
+                  loading={loading}
+                />
+              ) : (
+                <div className="mt-5 p-[22px_16px] sm:p-[30px_20px] text-center text-[var(--text-muted)] border border-dashed border-[var(--border-strong)] rounded-[var(--r-md)] bg-[oklch(0.12_0.018_245/0.4)] font-mono text-[11px] sm:text-[12px] tracking-[0.08em]">
+                  // start typing to see live analysis
+                </div>
+              )}
             </div>
-          )}
+
+            <StrengthRecommendations analysis={analysis} />
+          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 sm:gap-3">

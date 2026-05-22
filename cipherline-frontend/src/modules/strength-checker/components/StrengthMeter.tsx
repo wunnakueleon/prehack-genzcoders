@@ -1,13 +1,5 @@
 import { useMemo } from "react";
-
-interface StrengthAnalysis {
-  score: number;
-  label: string;
-  entropy: number;
-  length: number;
-  charset: number;
-  issues: string[];
-}
+import type { StrengthAnalysis } from "../strength.types";
 
 interface StrengthMeterProps {
   password: string;
@@ -46,6 +38,7 @@ export default function StrengthMeter({
   const activeGlow = glow[score];
 
   const timeToCrack = useMemo(() => {
+    if (analysis?.crackTime?.label) return analysis.crackTime.label;
     if (!entropy) return "—";
     const seconds = Math.pow(2, entropy) / 1e10;
     if (seconds < 1) return "instant";
@@ -55,7 +48,7 @@ export default function StrengthMeter({
     if (seconds < 31536000) return Math.round(seconds / 86400) + "d";
     if (seconds < 31536000 * 1000) return Math.round(seconds / 31536000) + "y";
     return "centuries";
-  }, [entropy]);
+  }, [analysis?.crackTime?.label, entropy]);
 
   const entropyFeedback = useMemo(() => {
     if (entropy === 0) return "No entropy";
@@ -66,9 +59,9 @@ export default function StrengthMeter({
     return "Military-grade";
   }, [entropy]);
 
-  const checks = [
+  const checks = analysis?.checks?.length ? analysis.checks : [
     {
-      ok: password.length >= 12,
+      passed: password.length >= 12,
       label:
         password.length >= 14
           ? `${password.length} characters — long`
@@ -77,18 +70,18 @@ export default function StrengthMeter({
             : `${password.length} characters — too short (min 12)`,
     },
     {
-      ok: /[A-Z]/.test(password) && /[a-z]/.test(password),
+      passed: /[A-Z]/.test(password) && /[a-z]/.test(password),
       label: "Mixed letter case (upper & lowercase)",
     },
-    { ok: /\d/.test(password), label: "Contains digits (0-9)" },
-    { ok: /[^A-Za-z0-9]/.test(password), label: "Contains symbols (!@#$…)" },
-    { ok: !issues.includes("Common word"), label: "No common dictionary words" },
+    { passed: /\d/.test(password), label: "Contains digits (0-9)" },
+    { passed: /[^A-Za-z0-9]/.test(password), label: "Contains symbols (!@#$…)" },
+    { passed: !issues.includes("Common word"), label: "No common dictionary words" },
     {
-      ok: !issues.some((x) => x.toLowerCase().includes("sequential") || x.toLowerCase().includes("keyboard")),
+      passed: !issues.some((x) => x.toLowerCase().includes("sequential") || x.toLowerCase().includes("keyboard")),
       label: "No keyboard pattern runs (e.g. qwerty)",
     },
     {
-      ok: !issues.includes("Repeating pattern"),
+      passed: !issues.includes("Repeating pattern"),
       label: "No repeating character sequences (e.g. aaaa)",
     },
   ];
@@ -179,16 +172,16 @@ export default function StrengthMeter({
             key={i}
             className={
               "flex items-center gap-3 text-[12px] sm:text-[13px] font-mono py-1.5 px-3 rounded-lg transition-colors " +
-              (password ? (ch.ok ? "text-[var(--accent)] bg-[oklch(0.86_0.2_142/0.04)]" : "text-[var(--danger)] bg-[oklch(0.70_0.2_25/0.04)]") : "text-[var(--text-muted)] bg-[oklch(0.16_0.02_245/0.2)]")
+              (password ? (ch.passed ? "text-[var(--accent)] bg-[oklch(0.86_0.2_142/0.04)]" : "text-[var(--danger)] bg-[oklch(0.70_0.2_25/0.04)]") : "text-[var(--text-muted)] bg-[oklch(0.16_0.02_245/0.2)]")
             }
           >
             <span
               className={
                 "w-2 h-2 rounded-full shrink-0 " +
-                (password ? (ch.ok ? "bg-[var(--accent)] [box-shadow:0_0_8px_var(--accent)]" : "bg-[var(--danger)] [box-shadow:0_0_8px_var(--danger)]") : "bg-[var(--text-dim)]")
+                (password ? (ch.passed ? "bg-[var(--accent)] [box-shadow:0_0_8px_var(--accent)]" : "bg-[var(--danger)] [box-shadow:0_0_8px_var(--danger)]") : "bg-[var(--text-dim)]")
               }
             />
-            <span className="font-semibold w-4">{password ? (ch.ok ? "✓" : "✗") : "•"}</span>
+            <span className="font-semibold w-4">{password ? (ch.passed ? "✓" : "✗") : "•"}</span>
             <span className="flex-1 break-words sm:truncate">{ch.label}</span>
           </div>
         ))}
