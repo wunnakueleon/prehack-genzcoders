@@ -89,7 +89,7 @@ function StrengthCheckerPage() {
       />
 
       <div className="border border-[var(--border)] rounded-[var(--r-lg)] bg-[oklch(0.14_0.018_245/0.55)] [backdrop-filter:blur(14px)] p-[22px] relative">
-        <div className="flex items-center justify-between gap-3 mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <h3 className="m-0 text-[15px] font-mono font-semibold tracking-[0.1em] uppercase text-[var(--text-muted)] flex items-center gap-2">
             <span className="w-[7px] h-[7px] rounded-full bg-[var(--accent)] [box-shadow:0_0_8px_var(--accent-glow)] shrink-0" />
             Password tester
@@ -118,7 +118,7 @@ function StrengthCheckerPage() {
         )}
       </div>
 
-      <div className="grid [grid-template-columns:repeat(auto-fit,minmax(160px,1fr))] gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="p-4 rounded-[var(--r-md)] border border-[var(--border)] bg-[oklch(0.13_0.018_245/0.6)]">
           <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-[var(--text-muted)]">Weak in vault</div>
           <div className="font-mono text-[28px] font-semibold leading-none mt-1 mb-0.5 text-[var(--danger)]">{counts.weak}</div>
@@ -142,7 +142,7 @@ function StrengthCheckerPage() {
       </div>
 
       <div className="border border-[var(--border)] rounded-[var(--r-lg)] bg-[oklch(0.14_0.018_245/0.55)] [backdrop-filter:blur(14px)] p-[22px] relative">
-        <div className="flex items-center justify-between gap-3 mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <h3 className="m-0 text-[15px] font-mono font-semibold tracking-[0.1em] uppercase text-[var(--text-muted)] flex items-center gap-2">
             <span className="w-[7px] h-[7px] rounded-full bg-[var(--accent)] [box-shadow:0_0_8px_var(--accent-glow)] shrink-0" />
             Vault rankings · weakest first

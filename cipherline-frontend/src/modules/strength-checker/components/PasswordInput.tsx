@@ -35,7 +35,7 @@ export default function PasswordInput({
         title={show ? "Hide password" : "Show password"}
       >
         {show ? <Ic.eyeOff /> : <Ic.eye />}
-        {show ? "Hide" : "Show"}
+        <span className="hidden sm:inline">{show ? "Hide" : "Show"}</span>
       </button>
 
       {value ? (
@@ -45,7 +45,7 @@ export default function PasswordInput({
           onClick={() => onChange("")}
           title="Clear field"
         >
-          <Ic.x /> Clear
+          <Ic.x /> <span className="hidden sm:inline">Clear</span>
         </button>
       ) : null}
 

@@ -129,7 +129,7 @@ export default function StrengthMeter({
         ))}
       </div>
 
-      <div className="grid grid-cols-3 max-[540px]:grid-cols-1 gap-3.5 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 mb-5">
         {[
           {
             v: password ? entropy : "0",
