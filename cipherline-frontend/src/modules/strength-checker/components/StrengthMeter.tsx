@@ -94,7 +94,7 @@ export default function StrengthMeter({
   ];
 
   return (
-    <div className="p-5 rounded-[var(--r-md)] bg-[oklch(0.13_0.018_245/0.7)] border border-[var(--border)] mt-4 transition-all duration-300 relative overflow-hidden">
+    <div className="p-4 sm:p-5 rounded-[var(--r-md)] bg-[oklch(0.13_0.018_245/0.7)] border border-[var(--border)] mt-4 transition-all duration-300 relative overflow-hidden">
       {loading && (
         <div className="absolute inset-0 bg-[oklch(0.13_0.018_245/0.4)] backdrop-filter blur-[1px] flex items-center justify-center z-10">
           <div className="scan-bar w-[80%]">
@@ -115,11 +115,11 @@ export default function StrengthMeter({
         </span>
       </div>
 
-      <div className="grid grid-cols-5 gap-1.5 mb-5">
+      <div className="grid grid-cols-5 gap-1.5 mb-4 sm:mb-5">
         {[0, 1, 2, 3, 4].map((i) => (
           <div
             key={i}
-            className="h-2 rounded-[4px] transition-all duration-300"
+            className="h-1.5 sm:h-2 rounded-[4px] transition-all duration-300"
             style={
               i <= score && password
                 ? { background: activeColor, boxShadow: `0 0 12px ${activeGlow}` }
@@ -129,7 +129,7 @@ export default function StrengthMeter({
         ))}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 mb-4 sm:mb-5">
         {[
           {
             v: password ? entropy : "0",
@@ -154,7 +154,7 @@ export default function StrengthMeter({
             key={s.l}
             className="border border-[var(--border)] rounded-lg p-3.5 bg-[oklch(0.16_0.02_245/0.5)] transition-all hover:border-[var(--border-strong)]"
           >
-            <div className="font-mono text-[20px] font-bold text-[var(--text)] leading-none">
+            <div className="font-mono text-[18px] sm:text-[20px] font-bold text-[var(--text)] leading-none">
               {s.v}
               {s.suffix ? (
                 <span className="text-[11px] font-normal opacity-60 ml-0.5">{s.suffix}</span>
@@ -178,7 +178,7 @@ export default function StrengthMeter({
           <div
             key={i}
             className={
-              "flex items-center gap-3 text-[13px] font-mono py-1.5 px-3 rounded-lg transition-colors " +
+              "flex items-center gap-3 text-[12px] sm:text-[13px] font-mono py-1.5 px-3 rounded-lg transition-colors " +
               (password ? (ch.ok ? "text-[var(--accent)] bg-[oklch(0.86_0.2_142/0.04)]" : "text-[var(--danger)] bg-[oklch(0.70_0.2_25/0.04)]") : "text-[var(--text-muted)] bg-[oklch(0.16_0.02_245/0.2)]")
             }
           >
@@ -189,7 +189,7 @@ export default function StrengthMeter({
               }
             />
             <span className="font-semibold w-4">{password ? (ch.ok ? "✓" : "✗") : "•"}</span>
-            <span className="flex-1 truncate">{ch.label}</span>
+            <span className="flex-1 break-words sm:truncate">{ch.label}</span>
           </div>
         ))}
       </div>
