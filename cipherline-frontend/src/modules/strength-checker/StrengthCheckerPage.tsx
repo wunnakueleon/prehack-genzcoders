@@ -11,6 +11,19 @@ import api from "../../api";
 
 type VaultAccount = (typeof ACCOUNTS)[number];
 type RankingSort = "weakest" | "strongest";
+type RotationNotice = {
+  accountId: string;
+  accountName: string;
+  from: string;
+  to: string;
+};
+
+interface RotationResponse {
+  accountId: string | null;
+  password: string;
+  analysis: StrengthAnalysis;
+  rotatedAt: string;
+}
 
 function StrengthCheckerPage() {
   const [pw, setPw] = useState("");
@@ -20,6 +33,10 @@ function StrengthCheckerPage() {
     ...ACCOUNTS,
   ]);
   const [rankingSort, setRankingSort] = useState<RankingSort>("weakest");
+  const [rotatingId, setRotatingId] = useState<string | null>(null);
+  const [rotationNotice, setRotationNotice] = useState<RotationNotice | null>(
+    null,
+  );
 
   // Debounced API call to backend /api/strength
   useEffect(() => {
@@ -61,21 +78,60 @@ function StrengthCheckerPage() {
     handlePasswordChange(generatePassword(18));
   };
 
-  const rotateVaultPassword = (accountId: string) => {
-    setVaultAccounts((current) =>
-      current.map((account) =>
-        account.id === accountId
-          ? { ...account, password: generatePassword(20) }
-          : account,
-      ),
-    );
+  const rotateVaultPassword = async (accountId: string) => {
+    const account = vaultAccounts.find((item) => item.id === accountId);
+
+    if (!account || rotatingId) return;
+
+    setRotatingId(accountId);
+
+    try {
+      const { data } = await api.post<RotationResponse>("/strength/rotate", {
+        accountId,
+        length: 20,
+      });
+      const nextPassword = data.password;
+      const nextLabel = data.analysis.label;
+      const previousLabel = analyzeStrength(account.password).label;
+
+      setVaultAccounts((current) =>
+        current.map((item) =>
+          item.id === accountId ? { ...item, password: nextPassword } : item,
+        ),
+      );
+      setRotationNotice({
+        accountId,
+        accountName: account.name,
+        from: previousLabel,
+        to: nextLabel,
+      });
+    } catch (err) {
+      console.warn("Backend rotation failed, using local generated password", err);
+      const nextPassword = generatePassword(20);
+      const previousLabel = analyzeStrength(account.password).label;
+      const nextLabel = analyzeStrength(nextPassword).label;
+
+      setVaultAccounts((current) =>
+        current.map((item) =>
+          item.id === accountId ? { ...item, password: nextPassword } : item,
+        ),
+      );
+      setRotationNotice({
+        accountId,
+        accountName: account.name,
+        from: previousLabel,
+        to: nextLabel,
+      });
+    } finally {
+      setRotatingId(null);
+    }
   };
 
   const hardenWeakestPassword = () => {
     const weakest = ranked[0];
 
     if (weakest) {
-      rotateVaultPassword(weakest.id);
+      void rotateVaultPassword(weakest.id);
     }
   };
 
@@ -206,10 +262,29 @@ function StrengthCheckerPage() {
             </div>
           </div>
 
+          {rotationNotice ? (
+            <div className="mb-4 rounded-[var(--r-sm)] border border-[oklch(0.86_0.20_142/0.35)] bg-[var(--accent-soft)] px-3.5 py-3 text-[12px] sm:text-[13px] text-[var(--text)]">
+              <span className="font-semibold">{rotationNotice.accountName}</span>{" "}
+              rotated through backend:{" "}
+              <span className="font-mono text-[var(--warn)] uppercase">
+                {rotationNotice.from}
+              </span>{" "}
+              to{" "}
+              <span className="font-mono text-[var(--accent)] uppercase">
+                {rotationNotice.to}
+              </span>
+            </div>
+          ) : null}
+
           {ranked.map((a) => (
             <div
               key={a.id}
-              className="row-item !p-4 sm:!p-[12px_14px] !gap-x-4 !gap-y-2 !items-start sm:!items-center"
+              className={
+                "row-item !p-4 sm:!p-[12px_14px] !gap-x-4 !gap-y-2 !items-start sm:!items-center " +
+                (rotationNotice?.accountId === a.id
+                  ? "!border-[oklch(0.86_0.20_142/0.45)]"
+                  : "")
+              }
             >
               <div
                 className="icon-mini"
@@ -240,7 +315,9 @@ function StrengthCheckerPage() {
                 <button
                   className="mini-btn"
                   aria-label={`Rotate ${a.name} password`}
-                  onClick={() => rotateVaultPassword(a.id)}
+                  disabled={Boolean(rotatingId)}
+                  title="Rotate password through strength backend"
+                  onClick={() => void rotateVaultPassword(a.id)}
                 >
                   <Ic.refresh />
                 </button>

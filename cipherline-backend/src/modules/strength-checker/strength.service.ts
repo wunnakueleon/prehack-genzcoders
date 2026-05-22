@@ -1,3 +1,5 @@
+import { randomInt } from "node:crypto";
+
 type StrengthCheck = {
   id: string;
   label: string;
@@ -20,6 +22,9 @@ type StrengthAnalysis = {
 };
 
 const MAX_PASSWORD_LENGTH = 256;
+const GENERATED_PASSWORD_LENGTH = 20;
+const PASSWORD_CHARSET =
+  "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*?";
 
 const COMMON_PATTERNS = [
   /password/i,
@@ -180,5 +185,35 @@ export async function analyzeStrength(body: unknown): Promise<StrengthAnalysis> 
     checks,
     suggestions: suggestions.length ? suggestions : ["This password passes the strength checklist."],
     crackTime: estimateCrackTime(entropy),
+  };
+}
+
+export function generateStrongPassword(length = GENERATED_PASSWORD_LENGTH): string {
+  const safeLength = Math.min(Math.max(Math.floor(length), 12), 64);
+
+  return Array.from(
+    { length: safeLength },
+    () => PASSWORD_CHARSET[randomInt(PASSWORD_CHARSET.length)] ?? "A",
+  ).join("");
+}
+
+export async function rotatePasswordStrength(body: unknown) {
+  const accountId = typeof body === "object" && body !== null && "accountId" in body
+    ? (body as { accountId?: unknown }).accountId
+    : undefined;
+  const requestedLength = typeof body === "object" && body !== null && "length" in body
+    ? (body as { length?: unknown }).length
+    : GENERATED_PASSWORD_LENGTH;
+  const passwordLength = typeof requestedLength === "number"
+    ? requestedLength
+    : GENERATED_PASSWORD_LENGTH;
+  const password = generateStrongPassword(passwordLength);
+  const analysis = await analyzeStrength({ password });
+
+  return {
+    accountId: typeof accountId === "string" ? accountId : null,
+    password,
+    analysis,
+    rotatedAt: new Date().toISOString(),
   };
 }
