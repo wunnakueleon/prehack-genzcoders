@@ -9,10 +9,17 @@ import StrengthRecommendations from "./components/StrengthRecommendations";
 import type { StrengthAnalysis } from "./strength.types";
 import api from "../../api";
 
+type VaultAccount = (typeof ACCOUNTS)[number];
+type RankingSort = "weakest" | "strongest";
+
 function StrengthCheckerPage() {
   const [pw, setPw] = useState("");
   const [analysis, setAnalysis] = useState<StrengthAnalysis | null>(null);
   const [loading, setLoading] = useState(false);
+  const [vaultAccounts, setVaultAccounts] = useState<VaultAccount[]>(() => [
+    ...ACCOUNTS,
+  ]);
+  const [rankingSort, setRankingSort] = useState<RankingSort>("weakest");
 
   // Debounced API call to backend /api/strength
   useEffect(() => {
@@ -54,12 +61,34 @@ function StrengthCheckerPage() {
     handlePasswordChange(generatePassword(18));
   };
 
+  const rotateVaultPassword = (accountId: string) => {
+    setVaultAccounts((current) =>
+      current.map((account) =>
+        account.id === accountId
+          ? { ...account, password: generatePassword(20) }
+          : account,
+      ),
+    );
+  };
+
+  const hardenWeakestPassword = () => {
+    const weakest = ranked[0];
+
+    if (weakest) {
+      rotateVaultPassword(weakest.id);
+    }
+  };
+
   const ranked = useMemo(() => {
-    return ACCOUNTS.map((a) => ({
+    return vaultAccounts.map((a) => ({
       ...a,
       strength: analyzeStrength(a.password),
-    })).sort((a, b) => a.strength.score - b.strength.score);
-  }, []);
+    })).sort((a, b) =>
+      rankingSort === "weakest"
+        ? a.strength.score - b.strength.score || a.strength.entropy - b.strength.entropy
+        : b.strength.score - a.strength.score || b.strength.entropy - a.strength.entropy,
+    );
+  }, [rankingSort, vaultAccounts]);
 
   const counts = useMemo(() => {
     const c = { weak: 0, decent: 0, strong: 0 };
@@ -147,11 +176,34 @@ function StrengthCheckerPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 sm:mb-4">
             <h3 className="m-0 text-[15px] font-mono font-semibold tracking-[0.1em] uppercase text-[var(--text-muted)] flex items-center gap-2">
               <span className="w-[7px] h-[7px] rounded-full bg-[var(--accent)] [box-shadow:0_0_8px_var(--accent-glow)] shrink-0" />
-              Vault rankings · weakest first
+              Vault rankings
             </h3>
-            <span className="font-mono text-[11px] text-[var(--text-muted)] tracking-[0.08em]">
-              {ranked.length} entries · sorted by score
-            </span>
+            <div className="flex flex-col min-[520px]:flex-row gap-2 min-[520px]:items-center">
+              <div className="flex rounded-[var(--r-sm)] border border-[var(--border)] overflow-hidden bg-[oklch(0.12_0.018_245/0.48)]">
+                {(["weakest", "strongest"] as RankingSort[]).map((sort) => (
+                  <button
+                    key={sort}
+                    type="button"
+                    className={
+                      "px-3 py-2 font-mono text-[10px] tracking-[0.1em] uppercase transition-colors " +
+                      (rankingSort === sort
+                        ? "text-[var(--accent)] bg-[var(--accent-soft)]"
+                        : "text-[var(--text-muted)] hover:text-[var(--text)]")
+                    }
+                    onClick={() => setRankingSort(sort)}
+                  >
+                    {sort}
+                  </button>
+                ))}
+              </div>
+              <button
+                className="btn-ghost justify-center"
+                type="button"
+                onClick={hardenWeakestPassword}
+              >
+                <Ic.refresh /> Harden weakest
+              </button>
+            </div>
           </div>
 
           {ranked.map((a) => (
@@ -185,7 +237,11 @@ function StrengthCheckerPage() {
                 </span>
               </div>
               <div className="actions-cell flex items-start sm:items-center justify-end">
-                <button className="mini-btn" aria-label="Rotate">
+                <button
+                  className="mini-btn"
+                  aria-label={`Rotate ${a.name} password`}
+                  onClick={() => rotateVaultPassword(a.id)}
+                >
                   <Ic.refresh />
                 </button>
               </div>
