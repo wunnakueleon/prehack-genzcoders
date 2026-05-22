@@ -9,7 +9,7 @@ A web-based password manager built for a beginner-friendly cybersecurity hackath
 | Profile | Name | GitHub | ID | Role |
 |---------|------|--------|----|------|
 | [<img src="https://github.com/wunnakueleon.png?size=20" width="20" height="20" alt="Wunna" style="border-radius:50%; vertical-align:middle;" />](https://github.com/wunnakueleon) | [Wunna Moe San](https://github.com/wunnakueleon) | [wunnakueleon](https://github.com/wunnakueleon) | 68130500835 | DevLead — Auth + Vault + Breach Check + Shared |
-| [<img src="https://github.com/YuukinoTakkashi1998.png?size=20" width="20" height="20" alt="In Thuta" style="border-radius:50%; vertical-align:middle;" />](https://github.com/YuukinoTakkashi1998) | [In Thuta](https://github.com/YuukinoTakkashi1998) | [YuukinoTakkashi1998](https://github.com/YuukinoTakkashi1998) | 68130500839 | Feature — Password Expiry Tracker |
+| [<img src="https://github.com/YuukinoTakkashi1998.png?size=20" width="20" height="20" alt="Min Thuta" style="border-radius:50%; vertical-align:middle;" />](https://github.com/YuukinoTakkashi1998) | [In Thuta](https://github.com/YuukinoTakkashi1998) | [YuukinoTakkashi1998](https://github.com/YuukinoTakkashi1998) | 68130500839 | Feature — Password Expiry Tracker |
 | [<img src="https://github.com/KyiPhyuThiriKhaing.png?size=20" width="20" height="20" alt="Kyi" style="border-radius:50%; vertical-align:middle;" />](https://github.com/KyiPhyuThiriKhaing) | [Kyi Phyu Thiri Khaing](https://github.com/KyiPhyuThiriKhaing) | [KyiPhyuThiriKhaing](https://github.com/KyiPhyuThiriKhaing) | 68130500851 | Feature — Password Strength Checker |
 | [<img src="https://github.com/laurahsu-loop.png?size=20" width="20" height="20" alt="Nan" style="border-radius:50%; vertical-align:middle;" />](https://github.com/laurahsu-loop) | [Nan Thiri Htet Su](https://github.com/laurahsu-loop) | [laurahsu-loop](https://github.com/laurahsu-loop) | 68130500853 | Feature — Duplicate Password Detector |
 
@@ -24,7 +24,7 @@ A web-based password manager built for a beginner-friendly cybersecurity hackath
 | Breach Check | `feature/breach-check` | Wunna | `modules/breach-check/` | `modules/breach-check/` |
 | Password Strength Checker | `feature/strength-checker` | Kyi Phyu | `modules/strength-checker/` | `modules/strength-checker/` |
 | Duplicate Password Detector | `feature/duplicate-detector` | Nan | `modules/duplicate-detector/` | `modules/duplicate-detector/` |
-| Password Expiry Tracker | `feature/expiry-tracker` | In Thuta | `modules/expiry-tracker/` | `modules/expiry-tracker/` |
+| Password Expiry Tracker | `feature/expiry-tracker` | Min Thuta | `modules/expiry-tracker/` | `modules/expiry-tracker/` |
 
 > Each person owns their folder end-to-end — frontend UI + backend router/controller/service. Do not touch another person's folder.
 
@@ -46,7 +46,7 @@ prehack-genzcoders/
 │           ├── breach-check/       # Wunna
 │           ├── strength-checker/   # Kyi Phyu
 │           ├── duplicate-detector/ # Nan
-│           └── expiry-tracker/     # In Thuta
+│           └── expiry-tracker/     # Min Thuta
 │
 └── cipherline-backend/         # Express + Prisma + SQLite
     ├── prisma/
@@ -62,7 +62,7 @@ prehack-genzcoders/
             ├── breach-check/       # Wunna
             ├── strength-checker/   # Kyi Phyu
             ├── duplicate-detector/ # Nan
-            └── expiry-tracker/     # In Thuta
+            └── expiry-tracker/     # Min Thuta
 ```
 
 ---
