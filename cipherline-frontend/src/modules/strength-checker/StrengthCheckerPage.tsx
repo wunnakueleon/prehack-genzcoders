@@ -1,13 +1,65 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Ic } from "../shared/icon";
 import { PageHero, PageShell, StrengthPill } from "../shared/ui";
 import { analyzeStrength, generatePassword } from "../shared/utils";
 import { ACCOUNTS } from "../shared/data";
-import { StrengthBreakdown } from "../shared/modal";
+import PasswordInput from "./components/PasswordInput";
+import StrengthMeter from "./components/StrengthMeter";
+import api from "../../api";
+
+interface StrengthAnalysis {
+  score: number;
+  label: string;
+  entropy: number;
+  length: number;
+  charset: number;
+  issues: string[];
+}
 
 function StrengthCheckerPage() {
   const [pw, setPw] = useState("");
-  const [show, setShow] = useState(false);
+  const [analysis, setAnalysis] = useState<StrengthAnalysis | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  // Debounced API call to backend /api/strength
+  useEffect(() => {
+    if (!pw) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      api
+        .post<StrengthAnalysis>("/strength", { password: pw })
+        .then((res) => {
+          setAnalysis(res.data);
+        })
+        .catch((err) => {
+          console.warn("Backend strength API failed or unreachable, falling back to local analysis", err);
+          // Local fallback analysis for offline resilience
+          const localResult = analyzeStrength(pw);
+          setAnalysis(localResult);
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+    }, 150); // 150ms debounce
+
+    return () => clearTimeout(timer);
+  }, [pw]);
+
+  const handlePasswordChange = (value: string) => {
+    setPw(value);
+    if (!value) {
+      setAnalysis(null);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+  };
+
+  const generateSample = () => {
+    handlePasswordChange(generatePassword(18));
+  };
 
   const ranked = useMemo(() => {
     return ACCOUNTS.map((a) => ({
@@ -33,7 +85,7 @@ function StrengthCheckerPage() {
         icon={<Ic.shield />}
         kicker="Security · Strength Checker"
         title="How strong is your password?"
-        sub="Type or paste any password to see its entropy, charset coverage, weak patterns, and estimated time to crack — calculated entirely client-side."
+        sub="Type or paste any password to see its entropy, charset coverage, weak patterns, and estimated time to crack — calculated in real-time by the backend API with instant client-side fallback."
       />
 
       <div className="border border-[var(--border)] rounded-[var(--r-lg)] bg-[oklch(0.14_0.018_245/0.55)] [backdrop-filter:blur(14px)] p-[22px] relative">
@@ -42,40 +94,23 @@ function StrengthCheckerPage() {
             <span className="w-[7px] h-[7px] rounded-full bg-[var(--accent)] [box-shadow:0_0_8px_var(--accent-glow)] shrink-0" />
             Password tester
           </h3>
-          <button
-            className="btn-ghost"
-            onClick={() => setPw(generatePassword(18))}
-          >
+          <button className="btn-ghost" onClick={generateSample}>
             <Ic.sparkle /> Generate sample
           </button>
         </div>
 
-        <div className="big-input">
-          <span className="leading">
-            <Ic.lock />
-          </span>
-          <input
-            type={show ? "text" : "password"}
-            value={pw}
-            onChange={(e) => setPw(e.target.value)}
-            placeholder="Type a password to analyze…"
-            autoFocus
-          />
-          <button className="trail-btn" onClick={() => setShow((v) => !v)}>
-            {show ? <Ic.eyeOff /> : <Ic.eye />}
-            {show ? "Hide" : "Show"}
-          </button>
-          {pw ? (
-            <button className="trail-btn" onClick={() => setPw("")}>
-              <Ic.x /> Clear
-            </button>
-          ) : null}
-        </div>
+        <PasswordInput
+          value={pw}
+          onChange={handlePasswordChange}
+          onGenerate={generateSample}
+        />
 
         {pw ? (
-          <div className="mt-4">
-            <StrengthBreakdown password={pw} />
-          </div>
+          <StrengthMeter
+            password={pw}
+            analysis={analysis}
+            loading={loading}
+          />
         ) : (
           <div className="mt-4 p-[30px_20px] text-center text-[var(--text-muted)] border border-dashed border-[var(--border-strong)] rounded-[var(--r-md)] bg-[oklch(0.12_0.018_245/0.4)] font-mono text-[12px] tracking-[0.08em]">
             // start typing to see live analysis
