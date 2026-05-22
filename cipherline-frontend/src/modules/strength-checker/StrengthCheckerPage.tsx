@@ -1,3 +1,159 @@
-export default function StrengthCheckerPage() {
-  return <div>Strength Checker</div>;
+import { useMemo, useState } from "react";
+import { Ic } from "../shared/icon";
+import { PageHero, PageShell, StrengthPill } from "../shared/ui";
+import { analyzeStrength, generatePassword } from "../shared/utils";
+import { ACCOUNTS } from "../shared/data";
+import { StrengthBreakdown } from "../shared/modal";
+
+function StrengthCheckerPage() {
+  const [pw, setPw] = useState("");
+  const [show, setShow] = useState(false);
+
+  const ranked = useMemo(() => {
+    return ACCOUNTS.map((a) => ({
+      ...a,
+      strength: analyzeStrength(a.password),
+    })).sort((a, b) => a.strength.score - b.strength.score);
+  }, []);
+
+  const counts = useMemo(() => {
+    const c = { weak: 0, decent: 0, strong: 0 };
+    ranked.forEach((a) => {
+      if (a.strength.score < 2) c.weak++;
+      else if (a.strength.score < 3) c.decent++;
+      else c.strong++;
+    });
+    return c;
+  }, [ranked]);
+
+  return (
+    <PageShell>
+      <PageHero
+        tone="accent"
+        icon={<Ic.shield />}
+        kicker="Security · Strength Checker"
+        title="How strong is your password?"
+        sub="Type or paste any password to see its entropy, charset coverage, weak patterns, and estimated time to crack — calculated entirely client-side."
+      />
+
+      <div className="border border-[var(--border)] rounded-[var(--r-lg)] bg-[oklch(0.14_0.018_245/0.55)] [backdrop-filter:blur(14px)] p-[22px] relative">
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <h3 className="m-0 text-[15px] font-mono font-semibold tracking-[0.1em] uppercase text-[var(--text-muted)] flex items-center gap-2">
+            <span className="w-[7px] h-[7px] rounded-full bg-[var(--accent)] [box-shadow:0_0_8px_var(--accent-glow)] shrink-0" />
+            Password tester
+          </h3>
+          <button
+            className="btn-ghost"
+            onClick={() => setPw(generatePassword(18))}
+          >
+            <Ic.sparkle /> Generate sample
+          </button>
+        </div>
+
+        <div className="big-input">
+          <span className="leading">
+            <Ic.lock />
+          </span>
+          <input
+            type={show ? "text" : "password"}
+            value={pw}
+            onChange={(e) => setPw(e.target.value)}
+            placeholder="Type a password to analyze…"
+            autoFocus
+          />
+          <button className="trail-btn" onClick={() => setShow((v) => !v)}>
+            {show ? <Ic.eyeOff /> : <Ic.eye />}
+            {show ? "Hide" : "Show"}
+          </button>
+          {pw ? (
+            <button className="trail-btn" onClick={() => setPw("")}>
+              <Ic.x /> Clear
+            </button>
+          ) : null}
+        </div>
+
+        {pw ? (
+          <div className="mt-4">
+            <StrengthBreakdown password={pw} />
+          </div>
+        ) : (
+          <div className="mt-4 p-[30px_20px] text-center text-[var(--text-muted)] border border-dashed border-[var(--border-strong)] rounded-[var(--r-md)] bg-[oklch(0.12_0.018_245/0.4)] font-mono text-[12px] tracking-[0.08em]">
+            // start typing to see live analysis
+          </div>
+        )}
+      </div>
+
+      <div className="grid [grid-template-columns:repeat(auto-fit,minmax(160px,1fr))] gap-3">
+        <div className="p-4 rounded-[var(--r-md)] border border-[var(--border)] bg-[oklch(0.13_0.018_245/0.6)]">
+          <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-[var(--text-muted)]">Weak in vault</div>
+          <div className="font-mono text-[28px] font-semibold leading-none mt-1 mb-0.5 text-[var(--danger)]">{counts.weak}</div>
+          <div className="text-[11px] text-[var(--text-dim)] font-mono">below decent threshold</div>
+        </div>
+        <div className="p-4 rounded-[var(--r-md)] border border-[var(--border)] bg-[oklch(0.13_0.018_245/0.6)]">
+          <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-[var(--text-muted)]">Decent</div>
+          <div className="font-mono text-[28px] font-semibold leading-none mt-1 mb-0.5 text-[var(--warn)]">{counts.decent}</div>
+          <div className="text-[11px] text-[var(--text-dim)] font-mono">could be stronger</div>
+        </div>
+        <div className="p-4 rounded-[var(--r-md)] border border-[var(--border)] bg-[oklch(0.13_0.018_245/0.6)]">
+          <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-[var(--text-muted)]">Strong / Hardened</div>
+          <div className="font-mono text-[28px] font-semibold leading-none mt-1 mb-0.5 text-[var(--accent)]">{counts.strong}</div>
+          <div className="text-[11px] text-[var(--text-dim)] font-mono">passes all checks</div>
+        </div>
+        <div className="p-4 rounded-[var(--r-md)] border border-[var(--border)] bg-[oklch(0.13_0.018_245/0.6)]">
+          <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-[var(--text-muted)]">Total entries</div>
+          <div className="font-mono text-[28px] font-semibold leading-none mt-1 mb-0.5 text-[var(--cyan)]">{ranked.length}</div>
+          <div className="text-[11px] text-[var(--text-dim)] font-mono">in this vault</div>
+        </div>
+      </div>
+
+      <div className="border border-[var(--border)] rounded-[var(--r-lg)] bg-[oklch(0.14_0.018_245/0.55)] [backdrop-filter:blur(14px)] p-[22px] relative">
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <h3 className="m-0 text-[15px] font-mono font-semibold tracking-[0.1em] uppercase text-[var(--text-muted)] flex items-center gap-2">
+            <span className="w-[7px] h-[7px] rounded-full bg-[var(--accent)] [box-shadow:0_0_8px_var(--accent-glow)] shrink-0" />
+            Vault rankings · weakest first
+          </h3>
+          <span className="font-mono text-[11px] text-[var(--text-muted)] tracking-[0.08em]">
+            {ranked.length} entries · sorted by score
+          </span>
+        </div>
+
+        {ranked.map((a) => (
+          <div key={a.id} className="row-item">
+            <div
+              className="icon-mini"
+              style={{
+                background: `linear-gradient(135deg, ${a.color}, color-mix(in oklch, ${a.color} 60%, oklch(0.15 0.02 245)))`,
+              }}
+            >
+              {a.initial}
+            </div>
+            <div className="title-block">
+              <div className="title">{a.name}</div>
+              <div className="meta">{a.domain}</div>
+            </div>
+            <div className="pw">
+              {"•".repeat(Math.min(14, a.password.length))}{" "}
+              <span className="text-[var(--text-dim)]">
+                {" "}
+                · {a.password.length} chars
+              </span>
+            </div>
+            <div className="meta-cell flex flex-col items-end gap-1">
+              <StrengthPill score={a.strength.score} />
+              <span className="font-mono text-[10px] text-[var(--text-dim)] tracking-[0.08em]">
+                {a.strength.entropy} bits
+              </span>
+            </div>
+            <div className="actions-cell">
+              <button className="mini-btn" aria-label="Rotate">
+                <Ic.refresh />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </PageShell>
+  );
 }
+
+export default StrengthCheckerPage;
