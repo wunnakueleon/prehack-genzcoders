@@ -26,6 +26,7 @@ type RotationNotice = {
   accountName: string;
   from: string;
   to: string;
+  generatedBy: "backend" | "local";
   saved: boolean;
 };
 
@@ -211,18 +212,37 @@ function StrengthCheckerPage() {
     setRotatingId(accountId);
 
     try {
-      const { data } = await api.post<RotationResponse>("/strength/rotate", {
-        accountId,
-        length: 20,
-      });
-      const nextPassword = data.password;
-      const nextLabel = data.analysis.label;
       const previousLabel = analyzeStrength(account.password).label;
+      let generatedBy: RotationNotice["generatedBy"] = "backend";
+      let nextPassword = "";
+      let nextLabel = "";
 
-      if (vaultSource === "backend") {
-        await api.put(`/vault/${accountId}`, {
-          encryptedPassword: nextPassword,
+      try {
+        const { data } = await api.post<RotationResponse>("/strength/rotate", {
+          accountId,
+          length: 20,
         });
+
+        nextPassword = data.password;
+        nextLabel = data.analysis.label;
+      } catch (err) {
+        console.warn("Backend rotation failed, using local generated password", err);
+        generatedBy = "local";
+        nextPassword = generatePassword(20);
+        nextLabel = analyzeStrength(nextPassword).label;
+      }
+
+      let saved = false;
+
+      if (vaultSource === "backend" && generatedBy === "backend") {
+        try {
+          await api.put(`/vault/${accountId}`, {
+            encryptedPassword: nextPassword,
+          });
+          saved = true;
+        } catch (err) {
+          console.warn("Vault save failed after backend rotation", err);
+        }
       }
 
       setVaultAccounts((current) =>
@@ -235,25 +255,8 @@ function StrengthCheckerPage() {
         accountName: account.name,
         from: previousLabel,
         to: nextLabel,
-        saved: vaultSource === "backend",
-      });
-    } catch (err) {
-      console.warn("Backend rotation failed, using local generated password", err);
-      const nextPassword = generatePassword(20);
-      const previousLabel = analyzeStrength(account.password).label;
-      const nextLabel = analyzeStrength(nextPassword).label;
-
-      setVaultAccounts((current) =>
-        current.map((item) =>
-          item.id === accountId ? { ...item, password: nextPassword } : item,
-        ),
-      );
-      setRotationNotice({
-        accountId,
-        accountName: account.name,
-        from: previousLabel,
-        to: nextLabel,
-        saved: false,
+        generatedBy,
+        saved,
       });
     } finally {
       setRotatingId(null);
@@ -381,7 +384,11 @@ function StrengthCheckerPage() {
           {rotationNotice ? (
             <div className="mb-4 rounded-[var(--r-sm)] border border-[oklch(0.86_0.20_142/0.35)] bg-[var(--accent-soft)] px-3.5 py-3 text-[12px] sm:text-[13px] text-[var(--text)]">
               <span className="font-semibold">{rotationNotice.accountName}</span>{" "}
-              rotated through backend:{" "}
+              rotated via{" "}
+              <span className="font-mono text-[var(--cyan)] uppercase">
+                {rotationNotice.generatedBy}
+              </span>
+              :{" "}
               <span className="font-mono text-[var(--warn)] uppercase">
                 {rotationNotice.from}
               </span>{" "}
@@ -390,7 +397,7 @@ function StrengthCheckerPage() {
                 {rotationNotice.to}
               </span>{" "}
               <span className="font-mono text-[var(--text-muted)]">
-                {rotationNotice.saved ? "· saved to vault" : "· local fallback"}
+                {rotationNotice.saved ? "· saved to vault" : "· not saved to vault"}
               </span>
             </div>
           ) : null}
