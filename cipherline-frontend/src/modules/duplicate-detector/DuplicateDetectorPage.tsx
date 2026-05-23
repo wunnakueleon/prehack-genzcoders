@@ -29,11 +29,11 @@ function DuplicateDetectorPage() {
       arr.map((a) =>
         a.id === acc.id
           ? {
-              ...a,
-              password: generatePassword(18),
-              breachStatus: "unchecked",
-              daysOld: 0,
-            }
+            ...a,
+            password: generatePassword(18),
+            breachStatus: "unchecked",
+            daysOld: 0,
+          }
           : a,
       ),
     );
