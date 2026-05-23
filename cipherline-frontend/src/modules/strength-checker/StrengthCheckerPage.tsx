@@ -26,8 +26,7 @@ type RotationNotice = {
   accountName: string;
   from: string;
   to: string;
-  generatedBy: "backend" | "local";
-  saved: boolean;
+  status: "updated" | "preview";
 };
 
 interface VaultEntryResponse {
@@ -154,7 +153,7 @@ function StrengthCheckerPage() {
         console.warn("Vault API failed, using demo vault fallback", err);
         setVaultAccounts(ACCOUNTS.map(toFallbackAccount));
         setVaultSource("fallback");
-        setVaultError("Using demo vault data because the vault backend is unavailable.");
+        setVaultError("Showing sample vault data while your vault is unavailable.");
       })
       .finally(() => {
         if (!cancelled) setVaultLoading(false);
@@ -213,7 +212,7 @@ function StrengthCheckerPage() {
 
     try {
       const previousLabel = analyzeStrength(account.password).label;
-      let generatedBy: RotationNotice["generatedBy"] = "backend";
+      let generatedPasswordReady = true;
       let nextPassword = "";
       let nextLabel = "";
 
@@ -227,19 +226,19 @@ function StrengthCheckerPage() {
         nextLabel = data.analysis.label;
       } catch (err) {
         console.warn("Backend rotation failed, using local generated password", err);
-        generatedBy = "local";
+        generatedPasswordReady = false;
         nextPassword = generatePassword(20);
         nextLabel = analyzeStrength(nextPassword).label;
       }
 
-      let saved = false;
+      let status: RotationNotice["status"] = "preview";
 
-      if (vaultSource === "backend" && generatedBy === "backend") {
+      if (vaultSource === "backend" && generatedPasswordReady) {
         try {
           await api.put(`/vault/${accountId}`, {
             encryptedPassword: nextPassword,
           });
-          saved = true;
+          status = "updated";
         } catch (err) {
           console.warn("Vault save failed after backend rotation", err);
         }
@@ -255,8 +254,7 @@ function StrengthCheckerPage() {
         accountName: account.name,
         from: previousLabel,
         to: nextLabel,
-        generatedBy,
-        saved,
+        status,
       });
     } finally {
       setRotatingId(null);
@@ -280,7 +278,7 @@ function StrengthCheckerPage() {
           icon={<Ic.shield />}
           kicker="Security · Strength Checker"
           title="How strong is your password?"
-          sub="Type or paste any password to see its entropy, charset coverage, weak patterns, and estimated time to crack — calculated in real-time by the backend API with instant client-side fallback."
+          sub="Type or paste any password to see its entropy, charset coverage, weak patterns, and estimated time to crack."
         />
         </div>
 
@@ -371,10 +369,10 @@ function StrengthCheckerPage() {
           <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] font-mono tracking-[0.08em] text-[var(--text-muted)]">
             <span>
               {vaultLoading
-                ? "Loading vault entries from backend..."
+                ? "Loading vault entries..."
                 : vaultSource === "backend"
-                  ? `Live backend vault · user ${DEMO_USER_ID}`
-                  : "Demo vault fallback"}
+                  ? "Your vault entries"
+                  : "Sample vault entries"}
             </span>
             {vaultError ? (
               <span className="text-[var(--warn)]">{vaultError}</span>
@@ -384,11 +382,7 @@ function StrengthCheckerPage() {
           {rotationNotice ? (
             <div className="mb-4 rounded-[var(--r-sm)] border border-[oklch(0.86_0.20_142/0.35)] bg-[var(--accent-soft)] px-3.5 py-3 text-[12px] sm:text-[13px] text-[var(--text)]">
               <span className="font-semibold">{rotationNotice.accountName}</span>{" "}
-              rotated via{" "}
-              <span className="font-mono text-[var(--cyan)] uppercase">
-                {rotationNotice.generatedBy}
-              </span>
-              :{" "}
+              password rotated:{" "}
               <span className="font-mono text-[var(--warn)] uppercase">
                 {rotationNotice.from}
               </span>{" "}
@@ -397,7 +391,7 @@ function StrengthCheckerPage() {
                 {rotationNotice.to}
               </span>{" "}
               <span className="font-mono text-[var(--text-muted)]">
-                {rotationNotice.saved ? "· saved to vault" : "· not saved to vault"}
+                {rotationNotice.status === "updated" ? "· updated" : "· preview only"}
               </span>
             </div>
           ) : null}
@@ -442,7 +436,7 @@ function StrengthCheckerPage() {
                   className="mini-btn"
                   aria-label={`Rotate ${a.name} password`}
                   disabled={Boolean(rotatingId)}
-                  title="Rotate password through strength backend"
+                  title="Rotate password"
                   onClick={() => void rotateVaultPassword(a.id)}
                 >
                   <Ic.refresh />
