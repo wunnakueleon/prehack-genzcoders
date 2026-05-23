@@ -144,6 +144,16 @@ function ExpiryTrackerPage() {
             : item,
         ),
       );
+
+      try {
+        const refreshed = await api.get<ExpiryEntryResponse[]>(
+          "/expiry-tracker/passwords",
+          { params: { userId: DEMO_USER_ID } },
+        );
+        setAccounts(refreshed.data.map(toExpiryAccount));
+      } catch (err) {
+        console.warn("Expiry tracker refresh failed", err);
+      }
     } catch (err) {
       console.warn("Rotate expiry failed", err);
     }
