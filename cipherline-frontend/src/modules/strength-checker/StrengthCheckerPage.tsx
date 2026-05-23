@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Ic } from "../shared/icon";
 import { PageHero, PageShell, StrengthPill } from "../shared/ui";
 import { analyzeStrength, generatePassword } from "../shared/utils";
@@ -137,7 +137,6 @@ function StrengthCheckerPage() {
   useEffect(() => {
     let cancelled = false;
 
-    setVaultLoading(true);
     api
       .get<VaultEntryResponse[]>("/vault", {
         params: { userId: DEMO_USER_ID },
@@ -166,7 +165,32 @@ function StrengthCheckerPage() {
     };
   }, []);
 
-  const handlePasswordChange = (value: string) => {
+  const ranked = useMemo(() => {
+    const rankedAccounts = vaultAccounts.map((a) => ({
+      ...a,
+      strength: analyzeStrength(a.password),
+    }));
+
+    return rankedAccounts.sort((a, b) =>
+      rankingSort === "weakest"
+        ? a.strength.score - b.strength.score ||
+          a.strength.entropy - b.strength.entropy
+        : b.strength.score - a.strength.score ||
+          b.strength.entropy - a.strength.entropy,
+    );
+  }, [rankingSort, vaultAccounts]);
+
+  const counts = useMemo(() => {
+    const c = { weak: 0, decent: 0, strong: 0 };
+    ranked.forEach((a) => {
+      if (a.strength.score < 2) c.weak++;
+      else if (a.strength.score < 3) c.decent++;
+      else c.strong++;
+    });
+    return c;
+  }, [ranked]);
+
+  const handlePasswordChange = useCallback((value: string) => {
     setPw(value);
     if (!value) {
       setAnalysis(null);
@@ -174,13 +198,13 @@ function StrengthCheckerPage() {
     } else {
       setLoading(true);
     }
-  };
+  }, []);
 
-  const generateSample = () => {
+  const generateSample = useCallback(() => {
     handlePasswordChange(generatePassword(18));
-  };
+  }, [handlePasswordChange]);
 
-  const rotateVaultPassword = async (accountId: string) => {
+  const rotateVaultPassword = useCallback(async (accountId: string) => {
     const account = vaultAccounts.find((item) => item.id === accountId);
 
     if (!account || rotatingId) return;
@@ -235,36 +259,15 @@ function StrengthCheckerPage() {
     } finally {
       setRotatingId(null);
     }
-  };
+  }, [rotatingId, vaultAccounts, vaultSource]);
 
-  const hardenWeakestPassword = () => {
+  const hardenWeakestPassword = useCallback(() => {
     const weakest = ranked[0];
 
     if (weakest) {
       void rotateVaultPassword(weakest.id);
     }
-  };
-
-  const ranked = useMemo(() => {
-    return vaultAccounts.map((a) => ({
-      ...a,
-      strength: analyzeStrength(a.password),
-    })).sort((a, b) =>
-      rankingSort === "weakest"
-        ? a.strength.score - b.strength.score || a.strength.entropy - b.strength.entropy
-        : b.strength.score - a.strength.score || b.strength.entropy - a.strength.entropy,
-    );
-  }, [rankingSort, vaultAccounts]);
-
-  const counts = useMemo(() => {
-    const c = { weak: 0, decent: 0, strong: 0 };
-    ranked.forEach((a) => {
-      if (a.strength.score < 2) c.weak++;
-      else if (a.strength.score < 3) c.decent++;
-      else c.strong++;
-    });
-    return c;
-  }, [ranked]);
+  }, [ranked, rotateVaultPassword]);
 
   return (
     <PageShell>
