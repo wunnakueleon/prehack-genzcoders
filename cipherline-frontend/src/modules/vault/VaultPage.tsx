@@ -18,12 +18,37 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import { ACCOUNTS, CATEGORIES } from "../shared/data";
+import { CATEGORIES } from "../shared/data";
+import { vaultApi, type VaultEntry } from "./vault.api";
 import AccountModal, { type AccountData } from "../shared/modal";
 import { CategoryTag, StrengthPill, ToastStack } from "../shared/ui";
 import { analyzeStrength, buildAudit, getExpiryStatus, mockBreachCheck } from "../shared/utils";
 
-type Account = (typeof ACCOUNTS)[number];
+type Account = AccountData & { id: string; lastUsed: string };
+
+// TODO: replace with localStorage.getItem("userId") once auth is wired
+const DEMO_USER_ID = localStorage.getItem("userId") ?? "cipherline-demo";
+
+function entryToAccount(e: VaultEntry): Account {
+  return {
+    id: e.id,
+    name: e.siteName,
+    domain: e.siteUrl ?? "",
+    email: e.usernameForSite,
+    username: e.usernameForSite,
+    password: e.encryptedPassword,
+    note: "",
+    category: "personal",
+    tags: [],
+    color: "oklch(0.82 0.14 215)",
+    initial: e.siteName.trim().charAt(0).toUpperCase() || "?",
+    lastUsed: new Date(e.updatedAt).toLocaleDateString(),
+    daysOld: Math.floor((Date.now() - new Date(e.createdAt).getTime()) / 86400000),
+    expiryDays: e.expiryDate ? 90 : 0,
+    breachStatus: e.breachStatus,
+    breachCount: 0,
+  };
+}
 type ModalState =
   | { mode: "new" }
   | { mode: "edit"; account: Account }
@@ -253,7 +278,8 @@ function AuditPanel({
 }
 
 export default function VaultPage() {
-  const [accounts, setAccounts] = useState(ACCOUNTS);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [activeCat, setActiveCat] = useState("all");
   const [view, setView] = useState<"grid" | "list">("grid");
@@ -265,9 +291,16 @@ export default function VaultPage() {
 
   const pushToast = (text: string) => {
     const id = Math.random().toString(36).slice(2);
-    setToasts((t) => [...t, { id, text }]);
-    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 2200);
+    setToasts((t: { id: string; text: string }[]) => [...t, { id, text }]);
+    setTimeout(() => setToasts((t: { id: string; text: string }[]) => t.filter((x) => x.id !== id)), 2200);
   };
+
+  useEffect(() => {
+    vaultApi.getEntries(DEMO_USER_ID)
+      .then((res) => setAccounts(res.data.map(entryToAccount)))
+      .catch(() => pushToast("Failed to load vault — is the backend running?"))
+      .finally(() => setLoading(false));
+  }, []);
 
   const audit = useMemo(() => buildAudit(accounts), [accounts]);
 
@@ -300,37 +333,61 @@ export default function VaultPage() {
     return m;
   }, [accounts]);
 
-  const handleSave = (data: AccountData) => {
-    if (modal?.mode === "new") {
-      const id = "acc-" + Math.random().toString(36).slice(2, 7);
-      setAccounts((arr) => [{ ...data, id, lastUsed: "just now" }, ...arr]);
-      pushToast("Account added to vault");
-    } else if (modal?.mode === "edit") {
-      setAccounts((arr) =>
-        arr.map((a) =>
-          a.id === modal.account.id
-            ? { ...a, ...data, daysOld: data.password !== modal.account.password ? 0 : a.daysOld }
-            : a,
-        ),
-      );
-      pushToast("Vault updated");
+  const handleSave = async (data: AccountData) => {
+    try {
+      if (modal?.mode === "new") {
+        const res = await vaultApi.createEntry({
+          userId: DEMO_USER_ID,
+          siteName: data.name,
+          usernameForSite: data.username || data.email,
+          encryptedPassword: data.password,
+          siteUrl: data.domain || undefined,
+          expiryDate: data.expiryDays > 0
+            ? new Date(Date.now() + data.expiryDays * 86400000).toISOString()
+            : undefined,
+        });
+        setAccounts((arr: Account[]) => [entryToAccount(res.data), ...arr]);
+        pushToast("Account added to vault");
+      } else if (modal?.mode === "edit") {
+        const res = await vaultApi.updateEntry(modal.account.id, {
+          siteName: data.name,
+          usernameForSite: data.username || data.email,
+          encryptedPassword: data.password,
+          siteUrl: data.domain || undefined,
+          expiryDate: data.expiryDays > 0
+            ? new Date(Date.now() + data.expiryDays * 86400000).toISOString()
+            : undefined,
+          breachStatus: data.breachStatus,
+        });
+        setAccounts((arr: Account[]) => arr.map((a: Account) => a.id === modal.account.id ? entryToAccount(res.data) : a));
+        pushToast("Vault updated");
+      }
+    } catch {
+      pushToast("Save failed — check connection");
     }
     setModal(null);
   };
 
-  const handleDelete = (data: AccountData) => {
-    setAccounts((arr) => arr.filter((a) => a.id !== data.id));
-    pushToast(`${data.name} removed`);
+  const handleDelete = async (data: AccountData) => {
+    if (!data.id) return;
+    try {
+      await vaultApi.deleteEntry(data.id);
+      setAccounts((arr: Account[]) => arr.filter((a: Account) => a.id !== data.id));
+      pushToast(`${data.name} removed`);
+    } catch {
+      pushToast("Delete failed — check connection");
+    }
     setModal(null);
   };
 
   const scanOne = async (acc: Account) => {
-    setScanningIds((s) => { const n = new Set(s); n.add(acc.id); return n; });
+    setScanningIds((s: Set<string>) => { const n = new Set(s); n.add(acc.id); return n; });
     const r = await mockBreachCheck(acc.password);
-    setAccounts((arr) =>
-      arr.map((a) => a.id === acc.id ? { ...a, breachStatus: r.status, breachCount: r.count } : a),
+    await vaultApi.updateEntry(acc.id, { breachStatus: r.status }).catch(() => {});
+    setAccounts((arr: Account[]) =>
+      arr.map((a: Account) => a.id === acc.id ? { ...a, breachStatus: r.status, breachCount: r.count } : a),
     );
-    setScanningIds((s) => { const n = new Set(s); n.delete(acc.id); return n; });
+    setScanningIds((s: Set<string>) => { const n = new Set(s); n.delete(acc.id); return n; });
     pushToast(
       r.status === "compromised"
         ? `${acc.name} found in ${r.count.toLocaleString()} breaches`
@@ -347,8 +404,8 @@ export default function VaultPage() {
     pushToast(`Audit complete · ${accounts.length} entries scanned`);
   };
 
-  const health = Math.round(
-    (accounts.reduce((s, a) => s + analyzeStrength(a.password).score, 0) / (accounts.length * 4)) * 100,
+  const health = accounts.length === 0 ? 0 : Math.round(
+    (accounts.reduce((s: number, a: Account) => s + analyzeStrength(a.password).score, 0) / (accounts.length * 4)) * 100,
   );
 
   const searchRef = useRef<HTMLInputElement>(null);
@@ -501,7 +558,12 @@ export default function VaultPage() {
             </div>
           )}
 
-          {filtered.length === 0 ? (
+          {loading ? (
+            <div className="border border-dashed border-[var(--border-strong)] rounded-[var(--r-lg)] p-[60px_24px] text-center text-[var(--text-muted)] bg-[oklch(0.13_0.018_245/0.4)]">
+              <div className="font-mono text-[var(--accent)] mb-2">// fetching vault</div>
+              <div className="scan-bar mx-auto max-w-[200px]"><div className="scan-fill" /></div>
+            </div>
+          ) : filtered.length === 0 ? (
             <div style={{
               border: "1px dashed var(--border-strong)", borderRadius: "var(--r-lg)",
               padding: "60px 24px", textAlign: "center", color: "var(--text-muted)",
