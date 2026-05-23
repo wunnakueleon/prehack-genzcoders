@@ -1,11 +1,103 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Ic } from "../shared/icon";
 import { PageHero, PageShell } from "../shared/ui";
 import { generatePassword, getExpiryStatus } from "../shared/utils";
-import { ACCOUNTS } from "../shared/data";
+import api from "../../api";
+
+const DEMO_USER_ID =
+  typeof window !== "undefined"
+    ? window.localStorage.getItem("userId") || "cipherline-demo"
+    : "cipherline-demo";
+
+type ExpiryEntryResponse = {
+  id: string;
+  siteName: string;
+  siteUrl: string | null;
+  usernameForSite: string;
+  breachStatus: string;
+  expiryDate: string | null;
+  updatedAt: string;
+  expiryDays: number | null;
+  daysOld: number;
+};
+
+type ExpiryAccount = {
+  id: string;
+  name: string;
+  domain: string;
+  username: string;
+  color: string;
+  initial: string;
+  daysOld: number;
+  expiryDays: number | null;
+  breachStatus: string;
+  breachCount: number;
+};
+
+const ACCOUNT_COLORS = [
+  "oklch(0.86 0.20 142)",
+  "oklch(0.82 0.16 75)",
+  "oklch(0.76 0.18 290)",
+  "oklch(0.76 0.18 340)",
+  "oklch(0.82 0.14 215)",
+];
+
+function getDomain(siteUrl: string | null, fallback: string) {
+  if (!siteUrl) return fallback;
+
+  try {
+    return new URL(siteUrl).hostname.replace(/^www\./, "");
+  } catch {
+    return siteUrl.replace(/^https?:\/\//, "").replace(/^www\./, "") || fallback;
+  }
+}
+
+function toExpiryAccount(entry: ExpiryEntryResponse, index: number): ExpiryAccount {
+  return {
+    id: entry.id,
+    name: entry.siteName,
+    domain: getDomain(entry.siteUrl, entry.usernameForSite),
+    username: entry.usernameForSite,
+    color: ACCOUNT_COLORS[index % ACCOUNT_COLORS.length] ?? ACCOUNT_COLORS[0],
+    initial: entry.siteName.trim().charAt(0).toUpperCase() || "?",
+    daysOld: entry.daysOld,
+    expiryDays: entry.expiryDays,
+    breachStatus: entry.breachStatus,
+    breachCount: 0,
+  };
+}
 
 function ExpiryTrackerPage() {
-  const [accounts, setAccounts] = useState(ACCOUNTS);
+  const [accounts, setAccounts] = useState<ExpiryAccount[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    api
+      .get<ExpiryEntryResponse[]>("/expiry-tracker/passwords", {
+        params: { userId: DEMO_USER_ID },
+      })
+      .then((res) => {
+        if (cancelled) return;
+        setAccounts(res.data.map(toExpiryAccount));
+        setError(null);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.warn("Expiry tracker API failed", err);
+        setAccounts([]);
+        setError("Unable to load expiry tracker data.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const enriched = useMemo(() => {
     return accounts
@@ -31,7 +123,7 @@ function ExpiryTrackerPage() {
   const pctFor = (d: number) =>
     Math.max(0, Math.min(100, ((d - minDay) / (maxDay - minDay)) * 100));
 
-  const rotate = (acc: (typeof ACCOUNTS)[number]) => {
+  const rotate = (acc: ExpiryAccount) => {
     setAccounts((arr) =>
       arr.map((a) =>
         a.id === acc.id
@@ -56,6 +148,16 @@ function ExpiryTrackerPage() {
         title="Rotation timeline"
         sub="Every credential ages. Track which passwords are due for rotation, which are overdue, and how long until the next rotation cycle hits."
       />
+
+      {loading ? (
+        <div className="p-4 rounded-[var(--r-md)] border border-[var(--border)] bg-[oklch(0.13_0.018_245/0.6)] font-mono text-[11px] tracking-[0.14em] uppercase text-[var(--text-muted)]">
+          Loading expiry tracker data...
+        </div>
+      ) : error ? (
+        <div className="p-4 rounded-[var(--r-md)] border border-[var(--border)] bg-[oklch(0.13_0.018_245/0.6)] font-mono text-[11px] tracking-[0.14em] uppercase text-[var(--danger)]">
+          {error}
+        </div>
+      ) : null}
 
       <div className="grid [grid-template-columns:repeat(auto-fit,minmax(160px,1fr))] gap-3">
         <div className="p-4 rounded-[var(--r-md)] border border-[var(--border)] bg-[oklch(0.13_0.018_245/0.6)]">
