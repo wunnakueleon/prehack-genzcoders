@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Ic } from "../shared/icon";
 import { PageHero, PageShell } from "../shared/ui";
-import { generatePassword, getExpiryStatus } from "../shared/utils";
+import { getExpiryStatus } from "../shared/utils";
 import api from "../../api";
 
 const DEMO_USER_ID =
@@ -123,20 +123,30 @@ function ExpiryTrackerPage() {
   const pctFor = (d: number) =>
     Math.max(0, Math.min(100, ((d - minDay) / (maxDay - minDay)) * 100));
 
-  const rotate = (acc: ExpiryAccount) => {
-    setAccounts((arr) =>
-      arr.map((a) =>
-        a.id === acc.id
-          ? {
-              ...a,
-              daysOld: 0,
-              password: generatePassword(18),
-              breachStatus: "unchecked",
-              breachCount: 0,
-            }
-          : a,
-      ),
-    );
+  const rotate = async (acc: ExpiryAccount) => {
+    try {
+      const { data } = await api.patch<ExpiryEntryResponse>(
+        `/expiry-tracker/passwords/${acc.id}/rotate`,
+      );
+
+      setAccounts((arr) =>
+        arr.map((item) =>
+          item.id === acc.id
+            ? {
+                ...item,
+                name: data.siteName,
+                domain: getDomain(data.siteUrl, data.usernameForSite),
+                username: data.usernameForSite,
+                daysOld: data.daysOld,
+                expiryDays: data.expiryDays,
+                breachStatus: data.breachStatus,
+              }
+            : item,
+        ),
+      );
+    } catch (err) {
+      console.warn("Rotate expiry failed", err);
+    }
   };
 
   return (
