@@ -5,7 +5,6 @@ import { analyzeStrength, generatePassword } from "../shared/utils";
 import { ACCOUNTS } from "../shared/data";
 import PasswordInput from "./components/PasswordInput";
 import StrengthMeter from "./components/StrengthMeter";
-import StrengthRecommendations from "./components/StrengthRecommendations";
 import type { StrengthAnalysis } from "./strength.types";
 import api from "../../api";
 
@@ -293,31 +292,22 @@ function StrengthCheckerPage() {
             </button>
           </div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_340px] gap-4 sm:gap-5 items-start">
-            <div className="min-w-0">
-              <PasswordInput
-                value={pw}
-                onChange={handlePasswordChange}
-              />
+          <PasswordInput value={pw} onChange={handlePasswordChange} />
 
-              {pw ? (
-                <StrengthMeter
-                  password={pw}
-                  analysis={analysis}
-                  loading={loading}
-                />
-              ) : (
-                <div className="mt-5 p-[22px_16px] sm:p-[30px_20px] text-center text-[var(--text-muted)] border border-dashed border-[var(--border-strong)] rounded-[var(--r-md)] bg-[oklch(0.12_0.018_245/0.4)] font-mono text-[11px] sm:text-[12px] tracking-[0.08em]">
-                  // start typing to see live analysis
-                </div>
-              )}
+          {pw ? (
+            <StrengthMeter
+              password={pw}
+              analysis={analysis}
+              loading={loading}
+            />
+          ) : (
+            <div className="mt-5 p-[22px_16px] sm:p-[30px_20px] text-center text-[var(--text-muted)] border border-dashed border-[var(--border-strong)] rounded-[var(--r-md)] bg-[oklch(0.12_0.018_245/0.4)] font-mono text-[11px] sm:text-[12px] tracking-[0.08em]">
+              // start typing to see live analysis
             </div>
-
-            <StrengthRecommendations analysis={analysis} />
-          </div>
+          )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 sm:gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-3">
           <div className="p-4 sm:p-4 rounded-[var(--r-md)] border border-[var(--border)] bg-[oklch(0.13_0.018_245/0.6)]">
             <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-[var(--text-muted)]">Weak in vault</div>
             <div className="font-mono text-[26px] sm:text-[28px] font-semibold leading-none mt-1 mb-1 text-[var(--danger)]">{counts.weak}</div>
