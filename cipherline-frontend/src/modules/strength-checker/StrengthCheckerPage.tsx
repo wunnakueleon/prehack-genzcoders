@@ -8,7 +8,10 @@ import StrengthMeter from "./components/StrengthMeter";
 import type { StrengthAnalysis } from "./strength.types";
 import api from "../../api";
 
-const DEMO_USER_ID = "cipherline-demo";
+const DEMO_USER_ID =
+  typeof window !== "undefined"
+    ? window.localStorage.getItem("userId") || "cipherline-demo"
+    : "cipherline-demo";
 
 type VaultSource = "backend" | "fallback";
 type RankingSort = "weakest" | "strongest";
