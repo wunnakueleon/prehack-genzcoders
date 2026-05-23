@@ -1,25 +1,114 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Ic } from "../shared/icon";
 import { PageHero, PageShell, StrengthPill } from "../shared/ui";
 import { analyzeStrength, generatePassword } from "../shared/utils";
 import { ACCOUNTS } from "../shared/data";
 import PasswordInput from "./components/PasswordInput";
 import StrengthMeter from "./components/StrengthMeter";
-import StrengthRecommendations from "./components/StrengthRecommendations";
 import type { StrengthAnalysis } from "./strength.types";
 import api from "../../api";
 
-type VaultAccount = (typeof ACCOUNTS)[number];
+const DEMO_USER_ID =
+  typeof window !== "undefined"
+    ? window.localStorage.getItem("userId") || "cipherline-demo"
+    : "cipherline-demo";
+
+type VaultSource = "backend" | "fallback";
 type RankingSort = "weakest" | "strongest";
+type VaultRankingAccount = {
+  id: string;
+  name: string;
+  domain: string;
+  username: string;
+  password: string;
+  color: string;
+  initial: string;
+};
+type RotationNotice = {
+  accountId: string;
+  accountName: string;
+  from: string;
+  to: string;
+  status: "updated" | "preview";
+};
+
+interface VaultEntryResponse {
+  id: string;
+  siteName: string;
+  siteUrl: string | null;
+  usernameForSite: string;
+  encryptedPassword: string;
+}
+
+interface RotationResponse {
+  accountId: string | null;
+  password: string;
+  analysis: StrengthAnalysis;
+  rotatedAt: string;
+}
+
+function getDomain(siteUrl: string | null, fallback: string) {
+  if (!siteUrl) return fallback;
+
+  try {
+    return new URL(siteUrl).hostname.replace(/^www\./, "");
+  } catch {
+    return siteUrl.replace(/^https?:\/\//, "").replace(/^www\./, "") || fallback;
+  }
+}
+
+function toRankingAccount(
+  entry: VaultEntryResponse,
+  index: number,
+): VaultRankingAccount {
+  const colors = [
+    "oklch(0.86 0.20 142)",
+    "oklch(0.82 0.16 75)",
+    "oklch(0.76 0.18 290)",
+    "oklch(0.76 0.18 340)",
+    "oklch(0.82 0.14 215)",
+  ];
+
+  return {
+    id: entry.id,
+    name: entry.siteName,
+    domain: getDomain(entry.siteUrl, entry.usernameForSite),
+    username: entry.usernameForSite,
+    password: entry.encryptedPassword,
+    color: colors[index % colors.length] ?? colors[0],
+    initial: entry.siteName.charAt(0).toUpperCase() || "?",
+  };
+}
+
+function toFallbackAccount(
+  account: (typeof ACCOUNTS)[number],
+): VaultRankingAccount {
+  return {
+    id: account.id,
+    name: account.name,
+    domain: account.domain,
+    username: account.username,
+    password: account.password,
+    color: account.color,
+    initial: account.initial,
+  };
+}
 
 function StrengthCheckerPage() {
   const [pw, setPw] = useState("");
   const [analysis, setAnalysis] = useState<StrengthAnalysis | null>(null);
   const [loading, setLoading] = useState(false);
-  const [vaultAccounts, setVaultAccounts] = useState<VaultAccount[]>(() => [
-    ...ACCOUNTS,
-  ]);
+  const [vaultAccounts, setVaultAccounts] = useState<VaultRankingAccount[]>(
+    () => ACCOUNTS.map(toFallbackAccount),
+  );
+  const [vaultSource, setVaultSource] = useState<VaultSource>("fallback");
+  const [vaultLoading, setVaultLoading] = useState(true);
+  const [vaultError, setVaultError] = useState<string | null>(null);
   const [rankingSort, setRankingSort] = useState<RankingSort>("weakest");
+  const [rotatingId, setRotatingId] = useState<string | null>(null);
+  const [rotationNotice, setRotationNotice] = useState<RotationNotice | null>(
+    null,
+  );
 
   // Debounced API call to backend /api/strength
   useEffect(() => {
@@ -47,46 +136,49 @@ function StrengthCheckerPage() {
     return () => clearTimeout(timer);
   }, [pw]);
 
-  const handlePasswordChange = (value: string) => {
-    setPw(value);
-    if (!value) {
-      setAnalysis(null);
-      setLoading(false);
-    } else {
-      setLoading(true);
-    }
-  };
+  useEffect(() => {
+    let cancelled = false;
 
-  const generateSample = () => {
-    handlePasswordChange(generatePassword(18));
-  };
+    api
+      .get<VaultEntryResponse[]>("/vault", {
+        params: { userId: DEMO_USER_ID },
+      })
+      .then((res) => {
+        if (cancelled) return;
 
-  const rotateVaultPassword = (accountId: string) => {
-    setVaultAccounts((current) =>
-      current.map((account) =>
-        account.id === accountId
-          ? { ...account, password: generatePassword(20) }
-          : account,
-      ),
-    );
-  };
+        setVaultAccounts(res.data.map(toRankingAccount));
+        setVaultSource("backend");
+        setVaultError(null);
+      })
+      .catch((err) => {
+        if (cancelled) return;
 
-  const hardenWeakestPassword = () => {
-    const weakest = ranked[0];
+        console.warn("Vault API failed, using demo vault fallback", err);
+        setVaultAccounts(ACCOUNTS.map(toFallbackAccount));
+        setVaultSource("fallback");
+        setVaultError("Showing sample vault data while your vault is unavailable.");
+      })
+      .finally(() => {
+        if (!cancelled) setVaultLoading(false);
+      });
 
-    if (weakest) {
-      rotateVaultPassword(weakest.id);
-    }
-  };
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const ranked = useMemo(() => {
-    return vaultAccounts.map((a) => ({
+    const rankedAccounts = vaultAccounts.map((a) => ({
       ...a,
       strength: analyzeStrength(a.password),
-    })).sort((a, b) =>
+    }));
+
+    return rankedAccounts.sort((a, b) =>
       rankingSort === "weakest"
-        ? a.strength.score - b.strength.score || a.strength.entropy - b.strength.entropy
-        : b.strength.score - a.strength.score || b.strength.entropy - a.strength.entropy,
+        ? a.strength.score - b.strength.score ||
+          a.strength.entropy - b.strength.entropy
+        : b.strength.score - a.strength.score ||
+          b.strength.entropy - a.strength.entropy,
     );
   }, [rankingSort, vaultAccounts]);
 
@@ -100,6 +192,86 @@ function StrengthCheckerPage() {
     return c;
   }, [ranked]);
 
+  const handlePasswordChange = useCallback((value: string) => {
+    setPw(value);
+    if (!value) {
+      setAnalysis(null);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+  }, []);
+
+  const generateSample = useCallback(() => {
+    handlePasswordChange(generatePassword(18));
+  }, [handlePasswordChange]);
+
+  const rotateVaultPassword = useCallback(async (accountId: string) => {
+    const account = vaultAccounts.find((item) => item.id === accountId);
+
+    if (!account || rotatingId) return;
+
+    setRotatingId(accountId);
+
+    try {
+      const previousLabel = analyzeStrength(account.password).label;
+      let generatedPasswordReady = true;
+      let nextPassword = "";
+      let nextLabel = "";
+
+      try {
+        const { data } = await api.post<RotationResponse>("/strength/rotate", {
+          accountId,
+          length: 20,
+        });
+
+        nextPassword = data.password;
+        nextLabel = data.analysis.label;
+      } catch (err) {
+        console.warn("Backend rotation failed, using local generated password", err);
+        generatedPasswordReady = false;
+        nextPassword = generatePassword(20);
+        nextLabel = analyzeStrength(nextPassword).label;
+      }
+
+      let status: RotationNotice["status"] = "preview";
+
+      if (vaultSource === "backend" && generatedPasswordReady) {
+        try {
+          await api.put(`/vault/${accountId}`, {
+            encryptedPassword: nextPassword,
+          });
+          status = "updated";
+        } catch (err) {
+          console.warn("Vault save failed after backend rotation", err);
+        }
+      }
+
+      setVaultAccounts((current) =>
+        current.map((item) =>
+          item.id === accountId ? { ...item, password: nextPassword } : item,
+        ),
+      );
+      setRotationNotice({
+        accountId,
+        accountName: account.name,
+        from: previousLabel,
+        to: nextLabel,
+        status,
+      });
+    } finally {
+      setRotatingId(null);
+    }
+  }, [rotatingId, vaultAccounts, vaultSource]);
+
+  const hardenWeakestPassword = useCallback(() => {
+    const weakest = ranked[0];
+
+    if (weakest) {
+      void rotateVaultPassword(weakest.id);
+    }
+  }, [ranked, rotateVaultPassword]);
+
   return (
     <PageShell>
       <div className="flex flex-col gap-6 sm:gap-7 px-1 sm:px-0">
@@ -109,7 +281,7 @@ function StrengthCheckerPage() {
           icon={<Ic.shield />}
           kicker="Security · Strength Checker"
           title="How strong is your password?"
-          sub="Type or paste any password to see its entropy, charset coverage, weak patterns, and estimated time to crack — calculated in real-time by the backend API with instant client-side fallback."
+          sub="Type or paste any password to see its entropy, charset coverage, weak patterns, and estimated time to crack."
         />
         </div>
 
@@ -124,32 +296,22 @@ function StrengthCheckerPage() {
             </button>
           </div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_340px] gap-4 sm:gap-5 items-start">
-            <div className="min-w-0">
-              <PasswordInput
-                value={pw}
-                onChange={handlePasswordChange}
-                onGenerate={generateSample}
-              />
+          <PasswordInput value={pw} onChange={handlePasswordChange} />
 
-              {pw ? (
-                <StrengthMeter
-                  password={pw}
-                  analysis={analysis}
-                  loading={loading}
-                />
-              ) : (
-                <div className="mt-5 p-[22px_16px] sm:p-[30px_20px] text-center text-[var(--text-muted)] border border-dashed border-[var(--border-strong)] rounded-[var(--r-md)] bg-[oklch(0.12_0.018_245/0.4)] font-mono text-[11px] sm:text-[12px] tracking-[0.08em]">
-                  // start typing to see live analysis
-                </div>
-              )}
+          {pw ? (
+            <StrengthMeter
+              password={pw}
+              analysis={analysis}
+              loading={loading}
+            />
+          ) : (
+            <div className="mt-5 p-[22px_16px] sm:p-[30px_20px] text-center text-[var(--text-muted)] border border-dashed border-[var(--border-strong)] rounded-[var(--r-md)] bg-[oklch(0.12_0.018_245/0.4)] font-mono text-[11px] sm:text-[12px] tracking-[0.08em]">
+              // start typing to see live analysis
             </div>
-
-            <StrengthRecommendations analysis={analysis} />
-          </div>
+          )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 sm:gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-3">
           <div className="p-4 sm:p-4 rounded-[var(--r-md)] border border-[var(--border)] bg-[oklch(0.13_0.018_245/0.6)]">
             <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-[var(--text-muted)]">Weak in vault</div>
             <div className="font-mono text-[26px] sm:text-[28px] font-semibold leading-none mt-1 mb-1 text-[var(--danger)]">{counts.weak}</div>
@@ -200,16 +362,52 @@ function StrengthCheckerPage() {
                 className="btn-ghost justify-center"
                 type="button"
                 onClick={hardenWeakestPassword}
+                disabled={vaultLoading || Boolean(rotatingId)}
               >
                 <Ic.refresh /> Harden weakest
               </button>
             </div>
           </div>
 
+          <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] font-mono tracking-[0.08em] text-[var(--text-muted)]">
+            <span>
+              {vaultLoading
+                ? "Loading vault entries..."
+                : vaultSource === "backend"
+                  ? "Your vault entries"
+                  : "Sample vault entries"}
+            </span>
+            {vaultError ? (
+              <span className="text-[var(--warn)]">{vaultError}</span>
+            ) : null}
+          </div>
+
+          {rotationNotice ? (
+            <div className="mb-4 rounded-[var(--r-sm)] border border-[oklch(0.86_0.20_142/0.35)] bg-[var(--accent-soft)] px-3.5 py-3 text-[12px] sm:text-[13px] text-[var(--text)]">
+              <span className="font-semibold">{rotationNotice.accountName}</span>{" "}
+              password rotated:{" "}
+              <span className="font-mono text-[var(--warn)] uppercase">
+                {rotationNotice.from}
+              </span>{" "}
+              to{" "}
+              <span className="font-mono text-[var(--accent)] uppercase">
+                {rotationNotice.to}
+              </span>{" "}
+              <span className="font-mono text-[var(--text-muted)]">
+                {rotationNotice.status === "updated" ? "· updated" : "· preview only"}
+              </span>
+            </div>
+          ) : null}
+
           {ranked.map((a) => (
             <div
               key={a.id}
-              className="row-item !p-4 sm:!p-[12px_14px] !gap-x-4 !gap-y-2 !items-start sm:!items-center"
+              className={
+                "row-item !p-4 sm:!p-[12px_14px] !gap-x-4 !gap-y-2 !items-start sm:!items-center " +
+                (rotationNotice?.accountId === a.id
+                  ? "!border-[oklch(0.86_0.20_142/0.45)]"
+                  : "")
+              }
             >
               <div
                 className="icon-mini"
@@ -240,7 +438,9 @@ function StrengthCheckerPage() {
                 <button
                   className="mini-btn"
                   aria-label={`Rotate ${a.name} password`}
-                  onClick={() => rotateVaultPassword(a.id)}
+                  disabled={Boolean(rotatingId)}
+                  title="Rotate password"
+                  onClick={() => void rotateVaultPassword(a.id)}
                 >
                   <Ic.refresh />
                 </button>
