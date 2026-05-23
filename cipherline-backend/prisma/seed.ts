@@ -4,14 +4,14 @@ import bcrypt from "bcrypt";
 async function main() {
   const hashed = await bcrypt.hash("password123", 10);
 
-  const demo = await db.user.upsert({
-    where: { email: "demo@cipherline.dev" },
+  const jenny = await db.user.upsert({
+    where: { email: "jenny@cipherline.dev" },
     update: {},
-    create: { id: "cipherline-demo", username: "demo", email: "demo@cipherline.dev", password: hashed },
+    create: { id: "cipherline-demo", username: "jenny", email: "jenny@cipherline.dev", password: hashed },
   });
 
   // Clear existing entries so re-running seed stays clean
-  await db.passwordEntry.deleteMany({ where: { userId: demo.id } });
+  await db.passwordEntry.deleteMany({ where: { userId: jenny.id } });
 
   const now = new Date();
   const daysAgo = (n: number) => new Date(now.getTime() - n * 86400000);
@@ -20,49 +20,69 @@ async function main() {
   await db.passwordEntry.createMany({
     data: [
       {
-        userId: demo.id,
-        siteName: "Wunna Moe San",
+        userId: jenny.id,
+        siteName: "GitHub",
         siteUrl: "https://github.com",
-        usernameForSite: "wunnamoesan",
-        encryptedPassword: "rT9$mZeq!4kVc8L",
+        usernameForSite: "jenny_dev",
+        encryptedPassword: "Gh7#mPx!K9vR2z",
         breachStatus: "safe",
-        expiryDate: daysFromNow(72),   // set 18 days ago, expires in 72 (90-day policy)
+        expiryDate: daysFromNow(72),  // 18d old, 90d policy → 72d left
         createdAt: daysAgo(18),
       },
       {
-        userId: demo.id,
-        siteName: "Gloria",
-        siteUrl: "https://figma.com",
-        usernameForSite: "gloria.design",
+        userId: jenny.id,
+        siteName: "Netflix",
+        siteUrl: "https://netflix.com",
+        usernameForSite: "jenny@email.com",
         encryptedPassword: "Summer2024!",
         breachStatus: "compromised",
-        expiryDate: daysAgo(52),       // already expired (set 142d ago, 90-day policy)
+        expiryDate: daysAgo(52),      // 142d old, 90d policy → expired 52d ago
         createdAt: daysAgo(142),
       },
       {
-        userId: demo.id,
-        siteName: "Min Thuta",
+        userId: jenny.id,
+        siteName: "Notion",
         siteUrl: "https://notion.so",
-        usernameForSite: "min.thuta",
-        encryptedPassword: "Q7p#Lz!93B$mVxq2",
+        usernameForSite: "jenny_dev",
+        encryptedPassword: "N0t!0nK9xQz#mR",
         breachStatus: "safe",
-        expiryDate: daysFromNow(5),    // expiring soon (set 55d ago, 60-day policy)
-        createdAt: daysAgo(55),
+        expiryDate: daysFromNow(3),   // 57d old, 60d policy → expires in 3d
+        createdAt: daysAgo(57),
       },
       {
-        userId: demo.id,
-        siteName: "Nan",
-        siteUrl: "https://instagram.com",
-        usernameForSite: "nan.social",
-        encryptedPassword: "wH4!pT7nQz#m2Rb9",
+        userId: jenny.id,
+        siteName: "Figma",
+        siteUrl: "https://figma.com",
+        usernameForSite: "jenny.design",
+        encryptedPassword: "Summer2024!",  // same as Netflix → duplicate
         breachStatus: "unchecked",
-        expiryDate: daysFromNow(52),   // 8 days in, 60-day policy
+        expiryDate: null,
+        createdAt: daysAgo(30),
+      },
+      {
+        userId: jenny.id,
+        siteName: "Dropbox",
+        siteUrl: "https://dropbox.com",
+        usernameForSite: "jenny_backup",
+        encryptedPassword: "Dr0pB0x!7kQzXm",
+        breachStatus: "unchecked",
+        expiryDate: null,
+        createdAt: daysAgo(5),
+      },
+      {
+        userId: jenny.id,
+        siteName: "LinkedIn",
+        siteUrl: "https://linkedin.com",
+        usernameForSite: "jenny@email.com",
+        encryptedPassword: "L!nk3dIn9xQzMr",
+        breachStatus: "compromised",
+        expiryDate: null,
         createdAt: daysAgo(8),
       },
     ],
   });
 
-  console.log("Seeded: demo user with 4 password entries (Wunna, Gloria, Min Thuta, Nan)");
+  console.log("Seeded: jenny with 6 entries — breach, expiry, duplicate all demo-ready");
 }
 
 main()
