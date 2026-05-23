@@ -3,7 +3,7 @@ import { checkBreach, clearBreach } from "./breach.controller.js";
 
 const router = express.Router();
 
-router.get("/", checkBreach);
+router.post("/", checkBreach);
 router.delete("/:id", clearBreach);
 
 export default router;
