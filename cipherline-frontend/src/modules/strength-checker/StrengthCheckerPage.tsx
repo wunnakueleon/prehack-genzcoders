@@ -9,14 +9,34 @@ import StrengthRecommendations from "./components/StrengthRecommendations";
 import type { StrengthAnalysis } from "./strength.types";
 import api from "../../api";
 
-type VaultAccount = (typeof ACCOUNTS)[number];
+const DEMO_USER_ID = "cipherline-demo";
+
+type VaultSource = "backend" | "fallback";
 type RankingSort = "weakest" | "strongest";
+type VaultRankingAccount = {
+  id: string;
+  name: string;
+  domain: string;
+  username: string;
+  password: string;
+  color: string;
+  initial: string;
+};
 type RotationNotice = {
   accountId: string;
   accountName: string;
   from: string;
   to: string;
+  saved: boolean;
 };
+
+interface VaultEntryResponse {
+  id: string;
+  siteName: string;
+  siteUrl: string | null;
+  usernameForSite: string;
+  encryptedPassword: string;
+}
 
 interface RotationResponse {
   accountId: string | null;
@@ -25,13 +45,63 @@ interface RotationResponse {
   rotatedAt: string;
 }
 
+function getDomain(siteUrl: string | null, fallback: string) {
+  if (!siteUrl) return fallback;
+
+  try {
+    return new URL(siteUrl).hostname.replace(/^www\./, "");
+  } catch {
+    return siteUrl.replace(/^https?:\/\//, "").replace(/^www\./, "") || fallback;
+  }
+}
+
+function toRankingAccount(
+  entry: VaultEntryResponse,
+  index: number,
+): VaultRankingAccount {
+  const colors = [
+    "oklch(0.86 0.20 142)",
+    "oklch(0.82 0.16 75)",
+    "oklch(0.76 0.18 290)",
+    "oklch(0.76 0.18 340)",
+    "oklch(0.82 0.14 215)",
+  ];
+
+  return {
+    id: entry.id,
+    name: entry.siteName,
+    domain: getDomain(entry.siteUrl, entry.usernameForSite),
+    username: entry.usernameForSite,
+    password: entry.encryptedPassword,
+    color: colors[index % colors.length] ?? colors[0],
+    initial: entry.siteName.charAt(0).toUpperCase() || "?",
+  };
+}
+
+function toFallbackAccount(
+  account: (typeof ACCOUNTS)[number],
+): VaultRankingAccount {
+  return {
+    id: account.id,
+    name: account.name,
+    domain: account.domain,
+    username: account.username,
+    password: account.password,
+    color: account.color,
+    initial: account.initial,
+  };
+}
+
 function StrengthCheckerPage() {
   const [pw, setPw] = useState("");
   const [analysis, setAnalysis] = useState<StrengthAnalysis | null>(null);
   const [loading, setLoading] = useState(false);
-  const [vaultAccounts, setVaultAccounts] = useState<VaultAccount[]>(() => [
-    ...ACCOUNTS,
-  ]);
+  const [vaultAccounts, setVaultAccounts] = useState<VaultRankingAccount[]>(
+    () => ACCOUNTS.map(toFallbackAccount),
+  );
+  const [vaultSource, setVaultSource] = useState<VaultSource>("fallback");
+  const [vaultLoading, setVaultLoading] = useState(true);
+  const [vaultError, setVaultError] = useState<string | null>(null);
   const [rankingSort, setRankingSort] = useState<RankingSort>("weakest");
   const [rotatingId, setRotatingId] = useState<string | null>(null);
   const [rotationNotice, setRotationNotice] = useState<RotationNotice | null>(
@@ -64,6 +134,38 @@ function StrengthCheckerPage() {
     return () => clearTimeout(timer);
   }, [pw]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    setVaultLoading(true);
+    api
+      .get<VaultEntryResponse[]>("/vault", {
+        params: { userId: DEMO_USER_ID },
+      })
+      .then((res) => {
+        if (cancelled) return;
+
+        setVaultAccounts(res.data.map(toRankingAccount));
+        setVaultSource("backend");
+        setVaultError(null);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+
+        console.warn("Vault API failed, using demo vault fallback", err);
+        setVaultAccounts(ACCOUNTS.map(toFallbackAccount));
+        setVaultSource("fallback");
+        setVaultError("Using demo vault data because the vault backend is unavailable.");
+      })
+      .finally(() => {
+        if (!cancelled) setVaultLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const handlePasswordChange = (value: string) => {
     setPw(value);
     if (!value) {
@@ -94,6 +196,12 @@ function StrengthCheckerPage() {
       const nextLabel = data.analysis.label;
       const previousLabel = analyzeStrength(account.password).label;
 
+      if (vaultSource === "backend") {
+        await api.put(`/vault/${accountId}`, {
+          encryptedPassword: nextPassword,
+        });
+      }
+
       setVaultAccounts((current) =>
         current.map((item) =>
           item.id === accountId ? { ...item, password: nextPassword } : item,
@@ -104,6 +212,7 @@ function StrengthCheckerPage() {
         accountName: account.name,
         from: previousLabel,
         to: nextLabel,
+        saved: vaultSource === "backend",
       });
     } catch (err) {
       console.warn("Backend rotation failed, using local generated password", err);
@@ -121,6 +230,7 @@ function StrengthCheckerPage() {
         accountName: account.name,
         from: previousLabel,
         to: nextLabel,
+        saved: false,
       });
     } finally {
       setRotatingId(null);
@@ -256,10 +366,24 @@ function StrengthCheckerPage() {
                 className="btn-ghost justify-center"
                 type="button"
                 onClick={hardenWeakestPassword}
+                disabled={vaultLoading || Boolean(rotatingId)}
               >
                 <Ic.refresh /> Harden weakest
               </button>
             </div>
+          </div>
+
+          <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] font-mono tracking-[0.08em] text-[var(--text-muted)]">
+            <span>
+              {vaultLoading
+                ? "Loading vault entries from backend..."
+                : vaultSource === "backend"
+                  ? `Live backend vault · user ${DEMO_USER_ID}`
+                  : "Demo vault fallback"}
+            </span>
+            {vaultError ? (
+              <span className="text-[var(--warn)]">{vaultError}</span>
+            ) : null}
           </div>
 
           {rotationNotice ? (
@@ -272,6 +396,9 @@ function StrengthCheckerPage() {
               to{" "}
               <span className="font-mono text-[var(--accent)] uppercase">
                 {rotationNotice.to}
+              </span>{" "}
+              <span className="font-mono text-[var(--text-muted)]">
+                {rotationNotice.saved ? "· saved to vault" : "· local fallback"}
               </span>
             </div>
           ) : null}
