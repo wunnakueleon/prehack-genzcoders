@@ -298,7 +298,6 @@ function StrengthCheckerPage() {
               <PasswordInput
                 value={pw}
                 onChange={handlePasswordChange}
-                onGenerate={generateSample}
               />
 
               {pw ? (
