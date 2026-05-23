@@ -18,7 +18,7 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import { CATEGORIES } from "../shared/data";
+import { ACCOUNTS, CATEGORIES } from "../shared/data";
 import { vaultApi, type VaultEntry } from "./vault.api";
 import AccountModal, { type AccountData } from "../shared/modal";
 import { CategoryTag, StrengthPill, ToastStack } from "../shared/ui";
@@ -278,8 +278,8 @@ function AuditPanel({
 }
 
 export default function VaultPage() {
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [accounts, setAccounts] = useState<Account[]>(ACCOUNTS as unknown as Account[]);
+  const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
   const [activeCat, setActiveCat] = useState("all");
   const [view, setView] = useState<"grid" | "list">("grid");
@@ -297,8 +297,8 @@ export default function VaultPage() {
 
   useEffect(() => {
     vaultApi.getEntries(DEMO_USER_ID)
-      .then((res) => setAccounts(res.data.map(entryToAccount)))
-      .catch(() => pushToast("Failed to load vault — is the backend running?"))
+      .then((res) => { if (res.data.length > 0) setAccounts(res.data.map(entryToAccount)); })
+      .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
@@ -519,7 +519,7 @@ export default function VaultPage() {
             </div>
           </div>
 
-          <div className="search" style={{ marginBottom: 16 }}>
+          <div className="search" style={{ marginBottom: 16, padding: "6px 12px" }}>
             <Search />
             <input
               ref={searchRef}
