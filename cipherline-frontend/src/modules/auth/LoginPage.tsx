@@ -1,11 +1,32 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import api from "../../api";
 import { BrandMark, TextField } from "../shared/ui";
 import { Ic } from "../shared/icon";
 
 export default function Login() {
-  const [email, setEmail] = useState("naomi.maren@cipherline.dev");
-  const [password, setPassword] = useState("");
-  const [remember, setRemember] = useState(true);
+  const navigate = useNavigate();
+  const [email, setEmail] = useState("jenny@cipherline.dev");
+  const [password, setPassword] = useState("password123");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      const res = await api.post("/auth/login", { email, password });
+      localStorage.setItem("userId", res.data.userId);
+      localStorage.setItem("username", res.data.username);
+      navigate("/vault");
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      setError(msg ?? "Invalid email or password");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen grid grid-cols-1 items-center justify-items-center p-[32px_20px] relative min-[980px]:grid-cols-[1.1fr_0.9fr] min-[980px]:max-w-[1400px] min-[980px]:mx-auto min-[980px]:gap-[60px] min-[980px]:p-[40px_64px] page-enter">
@@ -65,7 +86,7 @@ export default function Login() {
         </div>
       </div>
 
-      <form className="auth-card" onSubmit={() => {}}>
+      <form className="auth-card" onSubmit={submit}>
         <div className="flex items-center justify-between mb-[26px]">
           <div className="flex items-center gap-[10px] min-[980px]:hidden">
             <BrandMark />
@@ -88,6 +109,12 @@ export default function Login() {
           <Ic.shield /> Connection sealed · TLS 1.3 · Pinned cert verified
         </div>
 
+        {error && (
+          <div className="mb-[16px] p-[10px_12px] rounded-[var(--r-md)] bg-[oklch(0.25_0.08_15/0.5)] border border-[oklch(0.5_0.18_15/0.4)] text-[oklch(0.75_0.18_15)] font-mono text-[12px] tracking-[0.04em]">
+            {error}
+          </div>
+        )}
+
         <TextField
           label="Email"
           leading={<Ic.mail />}
@@ -108,29 +135,9 @@ export default function Login() {
           autoComplete="current-password"
         />
 
-        <div className="flex items-center justify-between mt-1.5 mb-[22px]">
-          <label className="check">
-            <input
-              type="checkbox"
-              checked={remember}
-              onChange={(e) => setRemember(e.target.checked)}
-            />
-            <span className="box">
-              <Ic.check />
-            </span>
-            <span>Keep this device unlocked for 7 days</span>
-          </label>
-          <button
-            type="button"
-            className="bg-transparent border-0 p-0 text-[var(--accent)] font-mono text-[12px] tracking-[0.06em] cursor-pointer no-underline relative hover:[text-shadow:0_0_12px_var(--accent-glow)]"
-          >
-            Recover
-          </button>
-        </div>
-
-        <button type="submit" className="btn-primary">
-          <Ic.lock /> Unlock vault
-          <Ic.arrow />
+        <button type="submit" className="btn-primary" disabled={loading} style={{ marginTop: 22 }}>
+          <Ic.lock /> {loading ? "Unlocking…" : "Unlock vault"}
+          {!loading && <Ic.arrow />}
         </button>
 
         <div className="mt-[22px] text-center text-[13px] text-[var(--text-muted)]">
@@ -138,7 +145,7 @@ export default function Login() {
           <button
             type="button"
             className="bg-transparent border-0 p-0 text-[var(--accent)] font-sans text-[13px] cursor-pointer no-underline relative ml-1.5 hover:[text-shadow:0_0_12px_var(--accent-glow)]"
-            onClick={() => {}}
+            onClick={() => navigate("/signup")}
           >
             Create a vault →
           </button>

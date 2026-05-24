@@ -1,16 +1,39 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import api from "../../api";
 import { BrandMark, PasswordStrength, TextField } from "../shared/ui";
 import { Ic } from "../shared/icon";
 
 export default function Signup() {
+  const navigate = useNavigate();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [agree, setAgree] = useState(true);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const match = password && confirm && password === confirm;
   const mismatch = confirm && password !== confirm;
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!match) return;
+    setError("");
+    setLoading(true);
+    try {
+      const res = await api.post("/auth/signup", { email, username: name, password });
+      localStorage.setItem("userId", res.data.userId);
+      localStorage.setItem("username", res.data.username);
+      navigate("/vault");
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      setError(msg ?? "Failed to create vault");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen grid grid-cols-1 items-center justify-items-center p-[32px_20px] relative min-[980px]:grid-cols-[1.1fr_0.9fr] min-[980px]:max-w-[1400px] min-[980px]:mx-auto min-[980px]:gap-[60px] min-[980px]:p-[40px_64px] page-enter">
@@ -71,7 +94,7 @@ export default function Signup() {
         </div>
       </div>
 
-      <form className="auth-card" onSubmit={() => {}}>
+      <form className="auth-card" onSubmit={submit}>
         <div className="flex items-center justify-between mb-[26px]">
           <div className="flex items-center gap-[10px] min-[980px]:hidden">
             <BrandMark />
@@ -89,6 +112,12 @@ export default function Signup() {
         <p className="text-[var(--text-muted)] text-[14px] m-0 mb-7">
           No email confirmation, no surveys — just one strong key.
         </p>
+
+        {error && (
+          <div className="mb-[16px] p-[10px_12px] rounded-[var(--r-md)] bg-[oklch(0.25_0.08_15/0.5)] border border-[oklch(0.5_0.18_15/0.4)] text-[oklch(0.75_0.18_15)] font-mono text-[12px] tracking-[0.04em]">
+            {error}
+          </div>
+        )}
 
         <TextField
           label="Display name"
@@ -154,9 +183,9 @@ export default function Signup() {
           </label>
         </div>
 
-        <button type="submit" className="btn-primary">
-          <Ic.shield /> Provision vault
-          <Ic.arrow />
+        <button type="submit" className="btn-primary" disabled={loading || !!mismatch || !agree}>
+          <Ic.shield /> {loading ? "Provisioning…" : "Provision vault"}
+          {!loading && <Ic.arrow />}
         </button>
 
         <div className="mt-[22px] text-center text-[13px] text-[var(--text-muted)]">
@@ -164,7 +193,7 @@ export default function Signup() {
           <button
             type="button"
             className="bg-transparent border-0 p-0 text-[var(--accent)] font-sans text-[13px] cursor-pointer no-underline relative ml-1.5 hover:[text-shadow:0_0_12px_var(--accent-glow)]"
-            onClick={() => {}}
+            onClick={() => navigate("/login")}
           >
             Sign in →
           </button>
