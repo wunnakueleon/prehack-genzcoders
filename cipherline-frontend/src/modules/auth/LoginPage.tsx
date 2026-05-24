@@ -7,8 +7,7 @@ import { Ic } from "../shared/icon";
 export default function Login() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("jenny@cipherline.dev");
-  const [password, setPassword] = useState("");
-  const [remember, setRemember] = useState(true);
+  const [password, setPassword] = useState("password123");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -136,27 +135,7 @@ export default function Login() {
           autoComplete="current-password"
         />
 
-        <div className="flex items-center justify-between mt-1.5 mb-[22px]">
-          <label className="check">
-            <input
-              type="checkbox"
-              checked={remember}
-              onChange={(e) => setRemember(e.target.checked)}
-            />
-            <span className="box">
-              <Ic.check />
-            </span>
-            <span>Keep this device unlocked for 7 days</span>
-          </label>
-          <button
-            type="button"
-            className="bg-transparent border-0 p-0 text-[var(--accent)] font-mono text-[12px] tracking-[0.06em] cursor-pointer no-underline relative hover:[text-shadow:0_0_12px_var(--accent-glow)]"
-          >
-            Recover
-          </button>
-        </div>
-
-        <button type="submit" className="btn-primary" disabled={loading}>
+        <button type="submit" className="btn-primary" disabled={loading} style={{ marginTop: 22 }}>
           <Ic.lock /> {loading ? "Unlocking…" : "Unlock vault"}
           {!loading && <Ic.arrow />}
         </button>
