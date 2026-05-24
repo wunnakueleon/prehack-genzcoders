@@ -15,10 +15,11 @@ type ExpiryEntryResponse = {
   siteUrl: string | null;
   usernameForSite: string;
   breachStatus: string;
+  // expiryDays: number | null;
+  // lastRotatedAt: string | null;
   expiryDate: string | null;
   updatedAt: string;
-  expiryDays: number | null;
-  daysOld: number;
+  createdAt: string;
 };
 
 type ExpiryAccount = {
@@ -32,6 +33,7 @@ type ExpiryAccount = {
   expiryDays: number | null;
   breachStatus: string;
   breachCount: number;
+  // lastRotatedAt: string | null;
 };
 
 const ACCOUNT_COLORS = [
@@ -52,6 +54,18 @@ function getDomain(siteUrl: string | null, fallback: string) {
   }
 }
 
+function computeExpiryDays(entry: ExpiryEntryResponse): number | null {
+  if (!entry.expiryDate) return null;
+  const expiry = new Date(entry.expiryDate).getTime();
+  const updated = new Date(entry.updatedAt).getTime();
+  return Math.ceil((expiry - updated) / 86400000);
+}
+
+function computeDaysOld(entry: ExpiryEntryResponse): number {
+  const updated = new Date(entry.updatedAt).getTime();
+  return Math.max(0, Math.floor((Date.now() - updated) / 86400000));
+}
+
 function toExpiryAccount(entry: ExpiryEntryResponse, index: number): ExpiryAccount {
   return {
     id: entry.id,
@@ -60,10 +74,11 @@ function toExpiryAccount(entry: ExpiryEntryResponse, index: number): ExpiryAccou
     username: entry.usernameForSite,
     color: ACCOUNT_COLORS[index % ACCOUNT_COLORS.length] ?? ACCOUNT_COLORS[0],
     initial: entry.siteName.trim().charAt(0).toUpperCase() || "?",
-    daysOld: entry.daysOld,
-    expiryDays: entry.expiryDays,
+    daysOld: computeDaysOld(entry),
+    expiryDays: computeExpiryDays(entry),
     breachStatus: entry.breachStatus,
     breachCount: 0,
+    // lastRotatedAt: entry.lastRotatedAt,
   };
 }
 
@@ -75,10 +90,12 @@ function ExpiryTrackerPage() {
   useEffect(() => {
     let cancelled = false;
 
-    api
-      .get<ExpiryEntryResponse[]>("/expiry-tracker/passwords", {
+    const loadAccounts = () =>
+      api.get<ExpiryEntryResponse[]>("/expiry-tracker/passwords", {
         params: { userId: DEMO_USER_ID },
-      })
+      });
+
+    loadAccounts()
       .then((res) => {
         if (cancelled) return;
         setAccounts(res.data.map(toExpiryAccount));
@@ -125,35 +142,12 @@ function ExpiryTrackerPage() {
 
   const rotate = async (acc: ExpiryAccount) => {
     try {
-      const { data } = await api.patch<ExpiryEntryResponse>(
-        `/expiry-tracker/passwords/${acc.id}/rotate`,
+      await api.patch(`/expiry-tracker/passwords/${acc.id}/rotate`);
+      const refreshed = await api.get<ExpiryEntryResponse[]>(
+        "/expiry-tracker/passwords",
+        { params: { userId: DEMO_USER_ID } },
       );
-
-      setAccounts((arr) =>
-        arr.map((item) =>
-          item.id === acc.id
-            ? {
-                ...item,
-                name: data.siteName,
-                domain: getDomain(data.siteUrl, data.usernameForSite),
-                username: data.usernameForSite,
-                daysOld: data.daysOld,
-                expiryDays: data.expiryDays,
-                breachStatus: data.breachStatus,
-              }
-            : item,
-        ),
-      );
-
-      try {
-        const refreshed = await api.get<ExpiryEntryResponse[]>(
-          "/expiry-tracker/passwords",
-          { params: { userId: DEMO_USER_ID } },
-        );
-        setAccounts(refreshed.data.map(toExpiryAccount));
-      } catch (err) {
-        console.warn("Expiry tracker refresh failed", err);
-      }
+      setAccounts(refreshed.data.map(toExpiryAccount));
     } catch (err) {
       console.warn("Rotate expiry failed", err);
     }
