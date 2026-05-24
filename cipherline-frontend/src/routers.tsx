@@ -1,5 +1,6 @@
 import { createBrowserRouter } from "react-router-dom";
 import App from "./App";
+import LandingPage from "./modules/home/LandingPage";
 import LoginPage from "./modules/auth/LoginPage";
 import SignupPage from "./modules/auth/SignupPage";
 import StrengthCheckerPage from "./modules/strength-checker/StrengthCheckerPage";
@@ -19,6 +20,7 @@ const router = createBrowserRouter([
       { path: "/breach",     element: <BreachCheckPage /> },
     ],
   },
+  { path: "/",       element: <LandingPage /> },
   { path: "/login",  element: <LoginPage /> },
   { path: "/signup", element: <SignupPage /> },
 ]);
