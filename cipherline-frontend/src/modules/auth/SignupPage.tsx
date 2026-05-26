@@ -29,8 +29,13 @@ export default function Signup() {
       localStorage.setItem("username", res.data.username);
       navigate("/vault");
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
-      setError(msg ?? "Failed to create vault");
+      console.error("Signup error:", err);
+      const axiosErr = err as { response?: { data?: { error?: string }; status?: number }; message?: string };
+      const msg = axiosErr?.response?.data?.error
+        ?? (axiosErr?.response?.status ? `HTTP ${axiosErr.response.status}` : null)
+        ?? axiosErr?.message
+        ?? "Failed to create vault";
+      setError(msg);
     } finally {
       setLoading(false);
     }
