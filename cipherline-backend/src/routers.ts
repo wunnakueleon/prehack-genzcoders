@@ -12,7 +12,6 @@ const router = express.Router();
 router.use("/auth",       authRouter);
 router.use("/strength",   strengthRouter);
 router.use("/duplicates", duplicateRouter);
-router.use("/expiry",     expiryRouter);
 router.use("/expiry-tracker", expiryTrackerRouter);
 router.use("/breach",     breachRouter);
 router.use("/vault",      vaultRouter);
