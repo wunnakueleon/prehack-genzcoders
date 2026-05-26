@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Check,
   Copy,
@@ -26,8 +27,7 @@ import { analyzeStrength, buildAudit, getExpiryStatus, mockBreachCheck } from ".
 
 type Account = AccountData & { id: string; lastUsed: string };
 
-// TODO: replace with localStorage.getItem("userId") once auth is wired
-const DEMO_USER_ID = localStorage.getItem("userId") ?? "cipherline-demo";
+const DEMO_USER_ID = localStorage.getItem("userId") ?? "";
 
 function entryToAccount(e: VaultEntry): Account {
   return {
@@ -278,6 +278,12 @@ function AuditPanel({
 }
 
 export default function VaultPage() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!localStorage.getItem("token")) navigate("/login");
+  }, [navigate]);
+
   const [accounts, setAccounts] = useState<Account[]>(ACCOUNTS as unknown as Account[]);
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Ic } from "../shared/icon";
 import { PageHero, PageShell, StrengthPill } from "../shared/ui";
 import { analyzeStrength, generatePassword } from "../shared/utils";
@@ -8,10 +9,7 @@ import StrengthMeter from "./components/StrengthMeter";
 import type { StrengthAnalysis } from "./strength.types";
 import api from "../../api";
 
-const DEMO_USER_ID =
-  typeof window !== "undefined"
-    ? window.localStorage.getItem("userId") || "cipherline-demo"
-    : "cipherline-demo";
+const DEMO_USER_ID = localStorage.getItem("userId") ?? "";
 
 type VaultSource = "backend" | "fallback";
 type RankingSort = "weakest" | "strongest";
@@ -95,6 +93,12 @@ function toFallbackAccount(
 }
 
 function StrengthCheckerPage() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!localStorage.getItem("token")) navigate("/login");
+  }, [navigate]);
+
   const [pw, setPw] = useState("");
   const [analysis, setAnalysis] = useState<StrengthAnalysis | null>(null);
   const [loading, setLoading] = useState(false);

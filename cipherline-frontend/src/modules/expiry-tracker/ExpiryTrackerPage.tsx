@@ -1,13 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Ic } from "../shared/icon";
 import { PageHero, PageShell } from "../shared/ui";
 import { getExpiryStatus } from "../shared/utils";
 import api from "../../api";
 
-const DEMO_USER_ID =
-  typeof window !== "undefined"
-    ? window.localStorage.getItem("userId") || "cipherline-demo"
-    : "cipherline-demo";
+const DEMO_USER_ID = localStorage.getItem("userId") ?? "";
 
 type ExpiryEntryResponse = {
   id: string;
@@ -83,6 +81,12 @@ function toExpiryAccount(entry: ExpiryEntryResponse, index: number): ExpiryAccou
 }
 
 function ExpiryTrackerPage() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!localStorage.getItem("token")) navigate("/login");
+  }, [navigate]);
+
   const [accounts, setAccounts] = useState<ExpiryAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -118,7 +122,7 @@ function ExpiryTrackerPage() {
 
   const enriched = useMemo(() => {
     return accounts
-      .map((a) => ({ ...a, expiry: getExpiryStatus(a) }))
+      .map((a) => ({ ...a, expiry: getExpiryStatus({ ...a, expiryDays: a.expiryDays ?? undefined }) }))
       .sort((a, b) => a.expiry.daysLeft - b.expiry.daysLeft);
   }, [accounts]);
 
