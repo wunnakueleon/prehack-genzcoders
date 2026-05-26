@@ -1,5 +1,12 @@
 import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 import db from "../../db.js";
+
+const JWT_SECRET = process.env.JWT_SECRET ?? "dev-secret-change-me";
+
+function signToken(userId: string) {
+  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: "7d" });
+}
 
 export async function loginUser(body: unknown) {
   const { email, password } = body as { email: string; password: string };
@@ -11,7 +18,7 @@ export async function loginUser(body: unknown) {
   const valid = await bcrypt.compare(password, user.password);
   if (!valid) throw new Error("Invalid email or password");
 
-  return { userId: user.id, username: user.username };
+  return { userId: user.id, username: user.username, token: signToken(user.id) };
 }
 
 export async function signupUser(body: unknown) {
@@ -24,5 +31,5 @@ export async function signupUser(body: unknown) {
   const hashed = await bcrypt.hash(password, 12);
   const user = await db.user.create({ data: { email, username, password: hashed } });
 
-  return { userId: user.id, username: user.username };
+  return { userId: user.id, username: user.username, token: signToken(user.id) };
 }
